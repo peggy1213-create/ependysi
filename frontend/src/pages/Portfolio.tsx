@@ -147,7 +147,7 @@ export default function Portfolio() {
                           <li key={t.ticker} className="flex min-w-0 items-center gap-2">
                             <span className="font-semibold text-accent">{t.ticker}</span>
                             {t.name && <span className="truncate text-fg-secondary">{t.name}</span>}
-                            {t.dividend_yield != null && (
+                            {t.dividend_yield != null && t.dividend_yield > 0 && (
                               <span className="whitespace-nowrap text-fg-muted">{num(t.dividend_yield, 2)}% yld</span>
                             )}
                             <span className="ml-auto whitespace-nowrap tnum text-fg-secondary">
