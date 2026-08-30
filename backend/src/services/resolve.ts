@@ -5,6 +5,8 @@
 import type { Market, InstrumentType } from '../config.js';
 import { detectInstrument } from '../lib/ticker.js';
 import { findTwSecurity } from '../repos/securities.repo.js';
+import * as watchlist from '../repos/watchlist.repo.js';
+import type { WatchlistItemRow } from '../repos/watchlist.repo.js';
 import * as twse from './twse.js';
 import * as yahoo from './yahoo.js';
 
@@ -48,4 +50,29 @@ export async function resolveInstrument(
   }
 
   return { ticker, name, market, type };
+}
+
+/**
+ * Ensure a ticker is on the watchlist, adding it (resolved + classified) if not.
+ * Used when a holding is created for a ticker the user isn't yet tracking.
+ */
+export async function ensureWatched(
+  rawTicker: string,
+  typeHint?: InstrumentType,
+): Promise<{ item: WatchlistItemRow; added: boolean }> {
+  const existing = watchlist.findByTicker(rawTicker.trim().toUpperCase());
+  if (existing) return { item: existing, added: false };
+
+  const resolved = await resolveInstrument(rawTicker, typeHint);
+  const again = watchlist.findByTicker(resolved.ticker);
+  if (again) return { item: again, added: false };
+
+  const created = watchlist.addItem({
+    ticker: resolved.ticker,
+    name: resolved.name,
+    market: resolved.market,
+    type: resolved.type,
+    tags: ['portfolio'],
+  });
+  return { item: watchlist.findByTicker(created.ticker)!, added: true };
 }

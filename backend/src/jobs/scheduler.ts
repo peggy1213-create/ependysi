@@ -9,9 +9,12 @@ import {
   refreshWatchlistQuotes,
   refreshEtfDetails,
   refreshTwInstitutional,
+  refreshTwFundamentals,
   refreshAlwaysOn,
 } from '../services/marketData.js';
 import { refreshTwSecurities } from '../services/twSecurities.js';
+import { refreshInstrumentMeta } from '../services/instrumentMeta.js';
+import { refreshEtfHoldings } from '../services/etfHoldings.js';
 
 interface Job {
   name: string;
@@ -44,9 +47,24 @@ const jobs: Job[] = [
     run: refreshEtfDetails,
   },
   {
+    name: 'tw-fundamentals',
+    cron: appConfig.refresh.twFundamentalsCron ?? '12 18 * * 1-5',
+    run: refreshTwFundamentals,
+  },
+  {
     name: 'tw-securities-list',
     cron: appConfig.refresh.twSecuritiesListCron ?? '0 7 * * *',
     run: refreshTwSecurities,
+  },
+  {
+    name: 'instrument-meta',
+    cron: appConfig.refresh.instrumentMetaCron ?? '15 7 * * *',
+    run: refreshInstrumentMeta,
+  },
+  {
+    name: 'etf-holdings',
+    cron: appConfig.refresh.etfHoldingsCron ?? '30 7 * * 1',
+    run: () => refreshEtfHoldings(false),
   },
 ];
 

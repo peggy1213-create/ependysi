@@ -172,6 +172,33 @@ function headerIndex(fields: string[]): { foreign: number; trust: number; dealer
   };
 }
 
+// ── Per-stock ratios (P/E, yield, P/B) — BWIBBU_ALL ─────────────────────────
+export interface StockRatios {
+  peRatio: number | null;
+  dividendYield: number | null; // percent
+  pbRatio: number | null;
+}
+
+export async function stockRatios(): Promise<Map<string, StockRatios>> {
+  const out = new Map<string, StockRatios>();
+  try {
+    const data = await fetchJson<TwseTable>(`${RWD}/afterTrading/BWIBBU_ALL?response=json`);
+    if (data.stat !== 'OK' || !data.data) return out;
+    for (const row of data.data) {
+      const ticker = String(row[0] ?? '').trim();
+      if (!/^\d{4,6}[A-Z]?$/.test(ticker)) continue;
+      out.set(ticker, {
+        peRatio: num(row[2]),
+        dividendYield: num(row[3]),
+        pbRatio: num(row[4]),
+      });
+    }
+  } catch {
+    /* degrade */
+  }
+  return out;
+}
+
 // ── Security master (STOCK_DAY_ALL) ─────────────────────────────────────────
 const TW_ETF_RE = /^00\d{2,4}[A-Z]?$/;
 

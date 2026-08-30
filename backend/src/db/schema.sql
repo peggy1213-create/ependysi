@@ -69,14 +69,56 @@ CREATE TABLE IF NOT EXISTS tw_securities (
 CREATE INDEX IF NOT EXISTS idx_tw_securities_name ON tw_securities(name);
 
 -- ── Portfolio ───────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS holdings (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  ticker     TEXT    NOT NULL,
-  quantity   REAL    NOT NULL,
-  cost_basis REAL    NOT NULL,     -- per share, in `currency`
-  currency   TEXT    NOT NULL,
-  note       TEXT,
-  opened_at  TEXT
+-- One row per lot (same ticker can have many lots at different prices/dates).
+CREATE TABLE IF NOT EXISTS holding_lots (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  ticker        TEXT    NOT NULL,
+  shares        REAL    NOT NULL,
+  cost_basis    REAL    NOT NULL,   -- per share, in `currency`
+  currency      TEXT    NOT NULL,
+  purchase_date TEXT,               -- ISO yyyy-mm-dd
+  notes         TEXT,
+  target_price  REAL,
+  stop_loss     REAL,
+  created_at    TEXT    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_holding_lots_ticker ON holding_lots(ticker);
+
+-- Dividend log — manual entries and auto-detected estimates.
+CREATE TABLE IF NOT EXISTS dividends (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  ticker           TEXT    NOT NULL,
+  ex_date          TEXT,             -- ISO
+  pay_date         TEXT,
+  amount_per_share REAL    NOT NULL,
+  currency         TEXT    NOT NULL,
+  shares           REAL,             -- shares held at record date
+  total_amount     REAL,             -- amount_per_share * shares
+  source           TEXT    NOT NULL DEFAULT 'manual',  -- manual | auto
+  note             TEXT,
+  created_at       TEXT    NOT NULL,
+  UNIQUE(ticker, ex_date, source)
+);
+CREATE INDEX IF NOT EXISTS idx_dividends_ticker ON dividends(ticker);
+
+-- Sector / industry / region per ticker (for allocation views).
+CREATE TABLE IF NOT EXISTS instrument_meta (
+  ticker     TEXT PRIMARY KEY,
+  sector     TEXT,   -- Yahoo sector, e.g. "Technology"
+  industry   TEXT,   -- Yahoo industry, e.g. "Semiconductors"
+  region     TEXT,   -- Taiwan | US | Other
+  updated_at TEXT NOT NULL
+);
+
+-- ETF constituents (top holdings) for overlap detection.
+CREATE TABLE IF NOT EXISTS etf_holdings (
+  etf_ticker       TEXT NOT NULL,
+  component_ticker TEXT NOT NULL,    -- normalized bare ticker (2330, NVDA); '' if unknown
+  component_name   TEXT,
+  weight_pct       REAL NOT NULL,    -- 0..100
+  as_of            TEXT,
+  source           TEXT NOT NULL DEFAULT 'yahoo',
+  PRIMARY KEY (etf_ticker, component_ticker, component_name)
 );
 
 -- ── Key/value settings ──────────────────────────────────────────────────────

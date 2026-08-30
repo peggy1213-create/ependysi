@@ -74,6 +74,39 @@ export async function institutional3Insti(): Promise<InstFlow[]> {
     .filter((x): x is InstFlow => x !== null && x.date !== '');
 }
 
+export interface TpexRatios {
+  peRatio: number | null;
+  dividendYield: number | null;
+  pbRatio: number | null;
+}
+
+export async function stockRatios(): Promise<Map<string, TpexRatios>> {
+  const out = new Map<string, TpexRatios>();
+  try {
+    const rows = await fetchJson<Record<string, string>[]>(
+      `${OPENAPI}/tpex_mainboard_peratio_analysis`,
+    );
+    for (const r of rows) {
+      const ticker = String(r.SecuritiesCompanyCode ?? '').trim();
+      if (!/^\d{4,6}[A-Z]?$/.test(ticker)) continue;
+      out.set(ticker, {
+        peRatio: numLoose(r.PriceEarningRatio),
+        dividendYield: numLoose(r.YieldRatio),
+        pbRatio: numLoose(r.PriceBookRatio),
+      });
+    }
+  } catch {
+    /* degrade */
+  }
+  return out;
+}
+
+function numLoose(v: string | undefined): number | null {
+  if (v == null || v === '' || v === '-') return null;
+  const n = Number(String(v).replace(/,/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
 function intLoose(v: string | undefined): number | null {
   if (v == null) return null;
   const n = Number(String(v).replace(/,/g, '').trim());

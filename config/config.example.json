@@ -6,8 +6,11 @@
     "watchlistQuotesCron": "*/10 * * * *",
     "twInstitutionalCron": "30 15 * * 1-5",
     "twEtfNavCron": "5 18 * * 1-5",
+    "twFundamentalsCron": "12 18 * * 1-5",
     "alwaysOnCron": "*/15 * * * *",
     "twSecuritiesListCron": "0 7 * * *",
+    "instrumentMetaCron": "15 7 * * *",
+    "etfHoldingsCron": "30 7 * * 1",
     "macroCron": "0 */6 * * *"
   },
   "macroSeries": {

@@ -70,3 +70,11 @@ export function toYahooSymbol(ticker: string, market: Market): string {
   if (market === 'TPEx') return `${ticker}.TWO`;
   return ticker;
 }
+
+/** Yahoo constituent symbol -> bare ticker matching our watchlist ("2330.TW" -> "2330"). */
+export function normalizeComponent(symbol: string): string {
+  return symbol
+    .trim()
+    .toUpperCase()
+    .replace(/\.(TW|TWO)$/i, '');
+}

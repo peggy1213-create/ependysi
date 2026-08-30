@@ -25,6 +25,7 @@ config/config.json
 
 # ...but keep bundled seed data
 !backend/data/tw-securities.seed.json
+!backend/data/etf-holdings.seed.json
 
 # logs
 *.log

@@ -130,6 +130,27 @@ export async function refreshEtfDetails(): Promise<RefreshResult> {
   return { updated, failed: 0 };
 }
 
+/** P/E, dividend yield, P/B for watched Taiwan stocks (TWSE + TPEx). */
+export async function refreshTwFundamentals(): Promise<RefreshResult> {
+  const tw = listItems().filter((i) => i.market === 'TWSE' || i.market === 'TPEx');
+  if (tw.length === 0) return { updated: 0, failed: 0 };
+
+  const [twseRatios, tpexRatios] = await Promise.all([twse.stockRatios(), tpex.stockRatios()]);
+  let updated = 0;
+  for (const item of tw) {
+    const r = twseRatios.get(item.ticker) ?? tpexRatios.get(item.ticker);
+    if (!r) continue;
+    upsertQuote({
+      ticker: item.ticker,
+      dividend_yield: r.dividendYield ?? undefined,
+      extra: { pe_ratio: r.peRatio, pb_ratio: r.pbRatio },
+      source: 'twse:ratios',
+    });
+    updated++;
+  }
+  return { updated, failed: 0 };
+}
+
 /** 外資/投信/自營商 net flows for watched Taiwan tickers. */
 export async function refreshTwInstitutional(): Promise<RefreshResult> {
   const watched = new Set(
