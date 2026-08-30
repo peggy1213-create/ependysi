@@ -7,12 +7,12 @@ P&L, an economic calendar, and market sentiment. Base currency: **TWD**.
 > Status: **backend + 7-tab dashboard UI working.** SQLite-backed watchlist
 > (items / groups / search / auto-detect), live data for Taiwan (TWSE + TPEx) and
 > global markets (Yahoo), normalized quote cache, full portfolio tracker (lots,
-> P&L in TWD, allocation, dividends, ETF/holding overlap), and a React dashboard
-> with all 7 tabs. There is **no background scheduler** — data refreshes on
-> `POST /api/refresh` (the UI's ↻ button, and once per session on load).
-> `/api/macro`, `/api/calendar`, `/api/sentiment` are stubbed; the Calendar tab
-> shows a "not wired" placeholder for economic events and Fear &amp; Greed is
-> blank on Overview.
+> P&L in TWD, allocation, dividends, ETF/holding overlap), a market-news feed with
+> optional AI briefing (Claude), and a React dashboard with all 7 tabs. There is
+> **no background scheduler** — data refreshes on `POST /api/refresh` (the UI's ↻
+> button, and once per session on load). `/api/macro`, `/api/calendar`,
+> `/api/sentiment` are stubbed; the Calendar tab shows a "not wired" placeholder
+> for economic events and Fear &amp; Greed is blank on Overview.
 
 ## Tech stack
 
@@ -22,6 +22,7 @@ P&L, an economic calendar, and market sentiment. Base currency: **TWD**.
 | Backend   | Node + Express + TypeScript (ESM), `tsx` in dev    |
 | Storage   | SQLite via `node:sqlite` (`backend/data/investment.sqlite`) |
 | Refresh   | manual — `POST /api/refresh` runs every fetch job  |
+| AI        | `@anthropic-ai/sdk` — News tab briefing (optional) |
 | Monorepo  | npm workspaces + `concurrently`                    |
 
 ### Why Node/Express for the backend
@@ -35,8 +36,10 @@ SQLite uses Node's **built-in `node:sqlite`** — no native build step, no
 dependency. Repositories in `backend/src/repos/` isolate all SQL, so switching to
 `better-sqlite3` later is contained.
 
-**No API keys needed** for the watchlist or any market data — TWSE/TPEx open data
-and Yahoo Finance are keyless. `FRED_API_KEY` is only for the stubbed
+**No API keys needed** for the watchlist, market data, or news fetching — TWSE/TPEx
+open data, Yahoo Finance, and the RSS news feeds are all keyless.
+`ANTHROPIC_API_KEY` is optional (only the News tab's "Analyze with AI" button).
+`FRED_API_KEY` is only for the stubbed
 `/api/macro` routes.
 
 ## Project structure
@@ -47,13 +50,13 @@ Investment/
 ├── config/
 │   └── config.example.json # always-on market backdrop + FRED series (copy to config.json)
 ├── backend/
-│   ├── .env.example        # server config + optional FRED key (copy to .env)
+│   ├── .env.example        # server config + optional ANTHROPIC_API_KEY / FRED key (copy to .env)
 │   ├── src/
 │   │   ├── index.ts        # Express app entry
 │   │   ├── config.ts       # env + config.json (always-on lists, FRED series)
 │   │   ├── db/             # node:sqlite connection, schema.sql, migrations, seed
-│   │   ├── repos/          # all SQL — watchlist, groups, quotes, institutional, holdings (lots), dividends, meta, etf_holdings, securities
-│   │   ├── services/       # data adapters, valuation/allocation/overlap/dividend engines, refreshAll (see services/README.md)
+│   │   ├── repos/          # all SQL — watchlist, groups, quotes, institutional, holdings (lots), dividends, meta, etf_holdings, securities, news
+│   │   ├── services/       # data adapters, valuation/allocation/overlap/dividend engines, news + newsAnalysis (Claude), refreshAll
 │   │   ├── lib/            # ticker auto-detect, region/sector classify, FX, http, ROC-date helpers
 │   │   └── routes/         # /api route modules
 │   └── data/
@@ -70,7 +73,7 @@ Investment/
         ├── main.tsx        # react-router route tree (7 tabs + settings)
         ├── lib/            # api wrapper, useApi hook (cache + polling), typed hooks, formatters
         ├── components/     # ui.tsx (Card/Stat/Badge/…), charts.tsx (SVG gauge/donut/heatmap/bars), AddModal
-        └── pages/          # Overview, Watchlist, Taiwan, EtfCenter, Macro, Portfolio, Calendar, Settings
+        └── pages/          # Overview, Watchlist, News, EtfCenter, Macro, Portfolio, Calendar, Settings
 ```
 
 ## Dashboard (frontend)
@@ -83,7 +86,7 @@ hand-rolled inline SVG (no chart library). Data fetching is a ~90-line
 | --- | --- |
 | **Overview** | portfolio strip · global indices · VIX gauge · TAIEX headline · market-wide 外資 5-day flow |
 | **Watchlist** | every watched item in one sortable/filterable table · quick-add bar · group view · right-click to remove · 💼 for holdings · colour-coded ETF premium/discount |
-| **Taiwan** | TAIEX + 外資 flow · sector heatmap (watched TW stocks by turnover) · watched TW list |
+| **News** | market headlines — global (CNBC, MarketWatch) + Taiwan (鉅亨網, 中央社), filter All/Global/TW · **AI market briefing** (Claude): digest + themes + how the news touches your watchlist/holdings + risks |
 | **ETF Center** | TW ETF grid (NAV / 折溢價 / yield / ex-div) · US ETF grid · pick 2–3 to compare · bond-ETF premium alerts |
 | **Macro** | FX quoted TWD-per-unit (USD/TWD highlighted) · commodities |
 | **Portfolio** | totals · holdings table with expandable lots (**＋ add / edit / delete lots**, ＋ log dividends) · allocation donuts (type/region/currency/tag) · rebalancing vs target · dividend calendar · overlap warnings |
@@ -211,6 +214,9 @@ Yahoo so you can find something by number or name before adding it.
 | `GET /api/markets`                  | always-on indices / FX / commodities / VIX     |
 | `GET /api/taiwan/institutional/:t`  | 外資/投信/自營商 net-flow history for a ticker    |
 | `GET /api/taiwan/market-flow?days=` | market-wide 三大法人 net (TWD), last N trading days |
+| `GET /api/news?region=`             | market headlines (`global` / `taiwan` filter)  |
+| `GET /api/news/analysis`            | the latest AI briefing (cached)                 |
+| `POST /api/news/analyze`            | run a fresh AI briefing (needs `ANTHROPIC_API_KEY`) |
 | `POST /api/refresh`                 | run every fetch job now (`?securities=1` also rebuilds the TW master) |
 
 Every watchlist item is returned in one **normalized shape**: `ticker, name,
@@ -276,6 +282,32 @@ manual entries and auto-detected estimates (flagged for you to correct).
 | ETF yield / expense / ex-div / holdings | Yahoo `quoteSummary` (cookie+crumb, best-effort)  |
 | TW stock yield / P/E / P/B              | TWSE `BWIBBU_ALL` + TPEx `peratio_analysis`        |
 | Sector / industry                      | Yahoo `assetProfile` (English; mapped to 中文)      |
+| News — global                          | CNBC + MarketWatch RSS                             |
+| News — Taiwan                           | 鉅亨網 (cnyes) + 中央社 RSS                          |
+
+The only non-keyless data is the **News tab's AI briefing**, which calls the
+Anthropic API — see below.
+
+## News + AI briefing
+
+`GET /api/news` returns recent market headlines (`services/news.ts` parses the
+RSS feeds above into `news_items`). The **News** tab lists them with an
+All / Global / TW filter.
+
+`POST /api/news/analyze` ([`services/newsAnalysis.ts`](backend/src/services/newsAnalysis.ts))
+sends the recent headlines **plus your watchlist and current holdings** to
+Claude and gets back a Markdown briefing: top stories, themes in focus, which of
+your tracked tickers the news touches, and things to watch. It's framed as
+information/education — the prompt forbids specific buy/sell calls and price
+targets, and the output ends with a *"not financial advice"* disclaimer.
+
+- Needs `ANTHROPIC_API_KEY` in `backend/.env` (get one at
+  [console.anthropic.com](https://console.anthropic.com)). Without it the tab
+  still shows headlines; the Analyze button is replaced by a setup note.
+- Model defaults to `claude-opus-5`; override with `ANTHROPIC_MODEL` (use a
+  Claude 4.6+ / 5 model). Each analysis is one API call (~$0.05–0.15 on Opus).
+- The latest briefing is cached (`GET /api/news/analysis`) and shown until you
+  refresh it.
 
 ## Refreshing data
 

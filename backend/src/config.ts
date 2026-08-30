@@ -72,7 +72,10 @@ export const env = {
     fred: process.env.FRED_API_KEY ?? '',
     alphaVantage: process.env.ALPHA_VANTAGE_API_KEY ?? '',
     finnhub: process.env.FINNHUB_API_KEY ?? '',
+    anthropic: process.env.ANTHROPIC_API_KEY ?? '',
   },
+  // Claude model for the News tab's AI analysis. Use a Claude 4.6+ / 5 model.
+  anthropicModel: process.env.ANTHROPIC_MODEL ?? 'claude-opus-5',
 };
 
 export const paths = {

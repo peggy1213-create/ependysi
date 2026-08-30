@@ -19,9 +19,11 @@ nothing here writes HTTP responses.
 | `fx.ts`            | cached always-on FX quotes      | currency → TWD conversion table                                |
 | `portfolio.ts`     | —                               | valuation engine: lots → positions → totals, allocation, overlap |
 | `dividends.ts`     | —                               | upcoming ex-dates, estimated income, auto-detect               |
+| `news.ts`          | CNBC / MarketWatch / 鉅亨網 / 中央社 RSS | fetch + parse market headlines (`news_items`)          |
+| `newsAnalysis.ts`  | Anthropic API (`ANTHROPIC_API_KEY`) | Claude briefing from headlines + watchlist + holdings      |
 
-No API keys are required for any of the above. `FRED_API_KEY` is only for the
-still-stubbed `/api/macro` routes.
+Only `newsAnalysis.ts` needs a key (`ANTHROPIC_API_KEY`, optional). `FRED_API_KEY`
+is only for the still-stubbed `/api/macro` routes.
 
 **Crumb note:** Yahoo's `quoteSummary` (ETF yield / expense ratio / ex-dividend /
 AUM) needs a cookie+crumb handshake. `yahoo.ts` does it best-effort and returns

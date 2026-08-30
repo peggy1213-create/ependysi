@@ -12,9 +12,11 @@
     "refresh:tw-list": "tsx --disable-warning=ExperimentalWarning src/scripts/refreshTwSecurities.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.68.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "fast-xml-parser": "^5.11.1",
     "zod": "^3.24.1"
   },
   "devDependencies": {

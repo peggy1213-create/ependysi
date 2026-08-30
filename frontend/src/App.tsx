@@ -11,7 +11,7 @@ const AUTO_REFRESH_MIN_GAP = 5 * 60_000; // don't auto-refresh more than once pe
 const TABS = [
   { to: '/', label: 'Overview', end: true },
   { to: '/watchlist', label: 'Watchlist' },
-  { to: '/taiwan', label: 'Taiwan' },
+  { to: '/news', label: 'News' },
   { to: '/etf', label: 'ETF Center' },
   { to: '/macro', label: 'Macro' },
   { to: '/portfolio', label: 'Portfolio' },
@@ -37,6 +37,7 @@ export default function App() {
       invalidate('/markets');
       invalidate('/portfolio');
       invalidate('/taiwan');
+      invalidate('/news');
       try {
         localStorage.setItem(AUTO_REFRESH_KEY, String(Date.now()));
       } catch {

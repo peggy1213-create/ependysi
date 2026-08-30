@@ -135,3 +135,25 @@ CREATE TABLE IF NOT EXISTS settings (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+-- ── News (market-relevant headlines) ────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS news_items (
+  id           TEXT PRIMARY KEY,   -- sha1(url)
+  title        TEXT NOT NULL,
+  summary      TEXT,               -- short description / excerpt, HTML stripped
+  url          TEXT NOT NULL,
+  source       TEXT,
+  region       TEXT NOT NULL,      -- global | taiwan
+  published_at TEXT,               -- ISO
+  fetched_at   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_news_published ON news_items(published_at DESC);
+
+-- AI analysis runs (latest is shown on the News tab).
+CREATE TABLE IF NOT EXISTS news_analysis (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  created_at  TEXT NOT NULL,
+  model       TEXT,
+  headline_count INTEGER,
+  content     TEXT NOT NULL        -- markdown from Claude
+);

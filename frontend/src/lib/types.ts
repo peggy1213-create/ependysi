@@ -72,6 +72,32 @@ export interface MarketFlowRow {
   dealer_net: number | null;
   fetched_at: string;
 }
+
+export interface NewsItem {
+  id: string;
+  title: string;
+  summary: string | null;
+  url: string;
+  source: string | null;
+  region: 'global' | 'taiwan';
+  published_at: string | null;
+  fetched_at: string;
+}
+export interface NewsResponse {
+  items: NewsItem[];
+  ai_enabled: boolean;
+}
+export interface NewsAnalysis {
+  id: number;
+  created_at: string;
+  model: string | null;
+  headline_count: number | null;
+  content: string;
+}
+export interface NewsAnalysisResponse {
+  analysis: NewsAnalysis | null;
+  ai_enabled: boolean;
+}
 export interface MarketsResponse {
   indices: MarketQuote[];
   fx: MarketQuote[];

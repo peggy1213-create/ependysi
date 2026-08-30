@@ -5,7 +5,7 @@ import './index.css';
 import App from './App.tsx';
 import Overview from './pages/Overview.tsx';
 import Watchlist from './pages/Watchlist.tsx';
-import Taiwan from './pages/Taiwan.tsx';
+import News from './pages/News.tsx';
 import EtfCenter from './pages/EtfCenter.tsx';
 import Macro from './pages/Macro.tsx';
 import Portfolio from './pages/Portfolio.tsx';
@@ -19,7 +19,7 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <Overview /> },
       { path: 'watchlist', element: <Watchlist /> },
-      { path: 'taiwan', element: <Taiwan /> },
+      { path: 'news', element: <News /> },
       { path: 'etf', element: <EtfCenter /> },
       { path: 'macro', element: <Macro /> },
       { path: 'portfolio', element: <Portfolio /> },

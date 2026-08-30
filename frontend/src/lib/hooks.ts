@@ -3,9 +3,10 @@ import type {
   AllocationView,
   DividendSummary,
   Group,
-  InstitutionalResponse,
   MarketFlowRow,
   MarketsResponse,
+  NewsAnalysisResponse,
+  NewsResponse,
   OverlapView,
   PortfolioSnapshot,
   WatchItem,
@@ -22,7 +23,7 @@ export const useAllocation = () => useApi<AllocationView>('/portfolio/allocation
 export const useOverlap = () => useApi<OverlapView>('/portfolio/overlap');
 export const useDividends = () => useApi<DividendSummary>('/portfolio/dividends');
 export const useGroups = () => useApi<{ groups: Group[] }>('/watchlist/groups');
-export const useInstitutional = (ticker: string | null, days = 5) =>
-  useApi<InstitutionalResponse>(ticker ? `/taiwan/institutional/${ticker}?days=${days}` : null);
 export const useMarketFlow = (days = 5) =>
   useApi<{ days: MarketFlowRow[] }>(`/taiwan/market-flow?days=${days}`, { refetchInterval: 5 * MIN });
+export const useNews = () => useApi<NewsResponse>('/news', { refetchInterval: 5 * MIN });
+export const useNewsAnalysis = () => useApi<NewsAnalysisResponse>('/news/analysis');

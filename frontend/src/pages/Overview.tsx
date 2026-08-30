@@ -99,11 +99,7 @@ export default function Overview() {
         </Card>
 
         {/* foreign 5-day flow */}
-        <Card
-          title="外資買賣超 · 5-day (全市場)"
-          className="lg:col-span-2"
-          action={<Link to="/taiwan" className="text-[10px] text-fg-muted hover:text-fg">taiwan →</Link>}
-        >
+        <Card title="外資買賣超 · 5-day (全市場)" className="lg:col-span-2">
           <Async q={flow} empty="No flow data yet.">
             {(f) => {
               const rows = f.days;

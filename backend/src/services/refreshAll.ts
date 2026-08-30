@@ -14,6 +14,7 @@ import {
 import { refreshInstrumentMeta } from './instrumentMeta.js';
 import { refreshEtfHoldings } from './etfHoldings.js';
 import { refreshTwSecurities } from './twSecurities.js';
+import { refreshNews } from './news.js';
 import { countTwSecurities } from '../repos/securities.repo.js';
 
 export type RefreshSummary = Record<string, unknown>;
@@ -28,6 +29,7 @@ export async function refreshAll(opts: { securities?: boolean } = {}): Promise<R
     ['etfHoldings', () => refreshEtfHoldings(false)],
     ['marketFlow', refreshMarketFlow],
     ['twInstitutional', refreshTwInstitutional],
+    ['news', refreshNews],
   ];
   if (opts.securities || countTwSecurities() === 0) {
     jobs.push(['twSecurities', refreshTwSecurities]);
