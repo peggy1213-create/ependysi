@@ -8,7 +8,8 @@ const API_TARGET = process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:4000';
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
-    port: 5173,
+    // Honour PORT when set (e.g. the Claude Code preview harness), else the Vite default.
+    port: process.env.PORT ? Number(process.env.PORT) : 5173,
     proxy: {
       // Frontend calls "/api/..." and Vite forwards to the backend in dev.
       '/api': { target: API_TARGET, changeOrigin: true },
