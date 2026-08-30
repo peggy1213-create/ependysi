@@ -31,6 +31,8 @@ export interface UpcomingDividend {
   dividend_yield: number | null;
   currency: string | null;
   est_annual_income_twd: number | null;
+  last_dividend: number | null; // most recent cash payout per share
+  last_dividend_date: string | null;
 }
 
 export function upcomingDividends(): UpcomingDividend[] {
@@ -55,6 +57,8 @@ export function upcomingDividends(): UpcomingDividend[] {
       dividend_yield: q.dividend_yield,
       currency: q.currency,
       est_annual_income_twd: r2(toTwd(annualOrig, q.currency, fx)),
+      last_dividend: q.last_dividend ?? null,
+      last_dividend_date: q.last_dividend_date ?? null,
     });
   }
   return out.sort((a, b) => a.ex_date.localeCompare(b.ex_date));
@@ -70,6 +74,9 @@ export interface DividendSummary {
     dividend_yield: number | null;
     market_value_twd: number | null;
     est_annual_income_twd: number | null;
+    last_dividend: number | null; // most recent cash payout per share
+    last_dividend_date: string | null;
+    currency: string;
   }[];
   upcoming: UpcomingDividend[];
   history: (Dividend & { total_amount_twd: number | null })[];
@@ -90,13 +97,16 @@ export function dividendSummary(): DividendSummary {
     generated_at: snap.generated_at,
     estimated_annual_income_twd: snap.totals.est_annual_income_twd,
     by_ticker: snap.positions
-      .filter((p) => p.dividend_yield != null && p.dividend_yield > 0)
+      .filter((p) => (p.dividend_yield != null && p.dividend_yield > 0) || p.last_dividend != null)
       .map((p) => ({
         ticker: p.ticker,
         name: p.name,
         dividend_yield: p.dividend_yield,
         market_value_twd: p.market_value_twd,
         est_annual_income_twd: p.est_annual_income_twd,
+        last_dividend: p.last_dividend,
+        last_dividend_date: p.last_dividend_date,
+        currency: p.currency,
       })),
     upcoming: upcomingDividends(),
     history,

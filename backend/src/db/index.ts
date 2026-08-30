@@ -25,7 +25,31 @@ const schema = readFileSync(resolve(__dirname, 'schema.sql'), 'utf-8');
 db.exec(schema);
 
 migrate();
+ensureColumns();
 seedTwSecurities();
+
+/**
+ * Idempotent column adds for tables that schema.sql only `CREATE ... IF NOT
+ * EXISTS`. Runs every start; safe because it checks before altering. Use this
+ * (rather than a versioned migration) for plain additive columns so it also
+ * heals DBs whose user_version has drifted ahead.
+ */
+function ensureColumns(): void {
+  const add: Record<string, Record<string, string>> = {
+    quote_cache: {
+      last_dividend: 'REAL',
+      last_dividend_date: 'TEXT',
+    },
+  };
+  for (const [table, cols] of Object.entries(add)) {
+    const have = new Set(
+      (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name),
+    );
+    for (const [col, type] of Object.entries(cols)) {
+      if (!have.has(col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`);
+    }
+  }
+}
 
 /**
  * Small forward-only migration runner keyed on PRAGMA user_version.

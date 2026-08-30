@@ -14,6 +14,7 @@ import {
   refreshWatchlistQuotes,
   refreshEtfDetails,
   refreshTwFundamentals,
+  refreshDividendHistory,
 } from '../services/marketData.js';
 import { refreshInstrumentMeta } from '../services/instrumentMeta.js';
 import { refreshEtfHoldings } from '../services/etfHoldings.js';
@@ -206,13 +207,16 @@ portfolioRouter.put('/settings', (req, res) => {
 portfolioRouter.post('/refresh', async (_req, res, next) => {
   try {
     const quotes = await refreshWatchlistQuotes();
-    const [etf, twFund, meta, holdings] = await Promise.all([
+    const [etf, twFund, divHist, meta, holdings] = await Promise.all([
       refreshEtfDetails(),
       refreshTwFundamentals(),
+      refreshDividendHistory(),
       refreshInstrumentMeta(),
       refreshEtfHoldings(true),
     ]);
-    res.json({ quotes, etf, twFund, meta, holdings });
+    // Fresh ex-dividend dates are now cached — log any that have passed.
+    const dividends = autoDetectDividends();
+    res.json({ quotes, etf, twFund, divHist, meta, holdings, dividends });
   } catch (err) {
     next(err);
   }

@@ -65,6 +65,8 @@ export interface Position {
   dividend_yield: number | null;
   est_annual_income_twd: number | null;
   next_ex_dividend_date: string | null;
+  last_dividend: number | null; // most recent cash dividend per share
+  last_dividend_date: string | null;
   tags: string[];
   priced: boolean;
   lots: LotValuation[];
@@ -194,6 +196,8 @@ export function computePortfolio(): PortfolioSnapshot {
       dividend_yield: dividendYield,
       est_annual_income_twd: r2(estIncomeTwd),
       next_ex_dividend_date: q?.next_ex_dividend_date ?? null,
+      last_dividend: q?.last_dividend ?? null,
+      last_dividend_date: q?.last_dividend_date ?? null,
       tags: w?.tags ?? [],
       priced: price != null,
       lots: lotVals,

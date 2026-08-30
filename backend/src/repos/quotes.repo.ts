@@ -17,6 +17,8 @@ export interface NormalizedQuote {
   expense_ratio: number | null;
   aum: number | null;
   next_ex_dividend_date: string | null;
+  last_dividend: number | null;
+  last_dividend_date: string | null;
   extra: Record<string, unknown> | null;
   source: string | null;
   fetched_at: string;
@@ -66,6 +68,8 @@ export function upsertQuote(q: QuoteUpsert): void {
     expense_ratio: q.expense_ratio ?? prev?.expense_ratio ?? null,
     aum: q.aum ?? prev?.aum ?? null,
     next_ex_dividend_date: q.next_ex_dividend_date ?? prev?.next_ex_dividend_date ?? null,
+    last_dividend: q.last_dividend ?? prev?.last_dividend ?? null,
+    last_dividend_date: q.last_dividend_date ?? prev?.last_dividend_date ?? null,
     extra: q.extra ? JSON.stringify(q.extra) : (prev?.extra ?? null),
     source: q.source ?? prev?.source ?? null,
     fetched_at: q.fetched_at ?? new Date().toISOString(),
@@ -74,17 +78,18 @@ export function upsertQuote(q: QuoteUpsert): void {
     `INSERT INTO quote_cache
        (ticker, name, price, change_pct, volume, market, type, currency,
         nav, premium_discount_pct, dividend_yield, expense_ratio, aum,
-        next_ex_dividend_date, extra, source, fetched_at)
+        next_ex_dividend_date, last_dividend, last_dividend_date, extra, source, fetched_at)
      VALUES
        ($ticker, $name, $price, $change_pct, $volume, $market, $type, $currency,
         $nav, $premium_discount_pct, $dividend_yield, $expense_ratio, $aum,
-        $next_ex_dividend_date, $extra, $source, $fetched_at)
+        $next_ex_dividend_date, $last_dividend, $last_dividend_date, $extra, $source, $fetched_at)
      ON CONFLICT(ticker) DO UPDATE SET
         name=$name, price=$price, change_pct=$change_pct, volume=$volume,
         market=$market, type=$type, currency=$currency, nav=$nav,
         premium_discount_pct=$premium_discount_pct, dividend_yield=$dividend_yield,
         expense_ratio=$expense_ratio, aum=$aum,
-        next_ex_dividend_date=$next_ex_dividend_date, extra=$extra,
-        source=$source, fetched_at=$fetched_at`,
+        next_ex_dividend_date=$next_ex_dividend_date,
+        last_dividend=$last_dividend, last_dividend_date=$last_dividend_date,
+        extra=$extra, source=$source, fetched_at=$fetched_at`,
   ).run(merged as Record<string, string | number | null>);
 }
