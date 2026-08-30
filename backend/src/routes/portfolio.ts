@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import * as lots from '../repos/holdings.repo.js';
 import * as divRepo from '../repos/dividends.repo.js';
+import { generateDcaLots } from '../services/dca.js';
 import { ensureWatched } from '../services/resolve.js';
 import {
   computePortfolio,
@@ -41,6 +42,13 @@ const lotBody = z.object({
   stop_loss: z.number().positive().nullish(),
 });
 
+function warmTicker(item: { ticker: string; type: string }): void {
+  void refreshWatchlistQuotes()
+    .then(() => refreshInstrumentMeta())
+    .then(() => (item.type === 'tw_etf' || item.type === 'us_etf' ? refreshEtfHoldings() : null))
+    .catch(() => {});
+}
+
 portfolioRouter.post('/lots', async (req, res, next) => {
   try {
     const parsed = lotBody.safeParse(req.body);
@@ -66,11 +74,7 @@ portfolioRouter.post('/lots', async (req, res, next) => {
       stop_loss: d.stop_loss ?? null,
     });
 
-    // warm data for the new ticker (non-blocking)
-    void refreshWatchlistQuotes()
-      .then(() => refreshInstrumentMeta())
-      .then(() => (item.type === 'tw_etf' || item.type === 'us_etf' ? refreshEtfHoldings() : null))
-      .catch(() => {});
+    warmTicker(item); // non-blocking
 
     res.status(201).json({ lot, watchlist: { ticker: item.ticker, added } });
   } catch (err) {
@@ -97,6 +101,51 @@ portfolioRouter.delete('/lots/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id)) return res.status(400).json({ error: 'invalid_id' });
   res.json({ deleted: lots.deleteLot(id) });
+});
+
+// ── 定期定額 one-shot backfill ─────────────────────────────────────────────
+const dcaBody = z.object({
+  ticker: z.string().trim().min(1).max(20),
+  currency: z.string().trim().length(3).optional(),
+  start_date: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, 'expected YYYY-MM-DD'),
+  end_date: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/).nullish(),
+  schedule: z
+    .array(z.object({ day: z.number().int().min(1).max(28), amount: z.number().positive() }))
+    .min(1)
+    .max(31),
+  notes: z.string().trim().max(500).nullish(),
+});
+
+portfolioRouter.post('/lots/dca', async (req, res, next) => {
+  try {
+    const parsed = dcaBody.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues });
+    }
+    const d = parsed.data;
+    const { item, added } = await ensureWatched(d.ticker);
+    const currency = d.currency?.toUpperCase() ?? (item.market === 'US' ? 'USD' : 'TWD');
+
+    const { lots: created, skipped } = await generateDcaLots({
+      ticker: item.ticker,
+      currency,
+      start_date: d.start_date,
+      end_date: d.end_date ?? null,
+      schedule: d.schedule,
+      notes: d.notes ?? null,
+    });
+
+    warmTicker(item); // non-blocking
+
+    res.status(201).json({
+      lots: created,
+      lots_created: created.length,
+      skipped,
+      watchlist: { ticker: item.ticker, added },
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ── Dividends ──────────────────────────────────────────────────────────────

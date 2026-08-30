@@ -50,6 +50,10 @@ function migrate(): void {
         `);
       }
     },
+    // 2: reserved — briefly added holding_lots.plan_id for persistent 定期定額 plans,
+    //    since dropped in favour of one-shot backfill. Kept as a no-op so DBs that
+    //    already ran it stay consistent at user_version = 2.
+    () => {},
   ];
 
   for (; version < steps.length; version++) {

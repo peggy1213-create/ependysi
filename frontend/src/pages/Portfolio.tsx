@@ -10,7 +10,10 @@ import { compact, dateShort, daysUntil, money, num, pct, shares } from '../lib/f
 import { dirClass } from '../lib/format';
 import type { AllocationBucket, AllocationView, Lot, Position } from '../lib/types';
 
-type LotModal = { mode: 'add' } | { mode: 'edit'; id: number; ticker: string; lot: Lot } | null;
+type LotModal =
+  | { mode: 'add' }
+  | { mode: 'edit'; id: number; ticker: string; lot: Lot }
+  | null;
 
 export default function Portfolio() {
   const pf = usePortfolio();

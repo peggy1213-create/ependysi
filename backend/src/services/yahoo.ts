@@ -69,6 +69,49 @@ export async function chart(symbol: string): Promise<YahooQuote | null> {
   };
 }
 
+export interface DailyClose {
+  date: string; // ISO yyyy-mm-dd
+  close: number;
+}
+
+interface HistoryResp {
+  chart: {
+    result?: {
+      timestamp?: number[];
+      indicators: {
+        quote?: { close?: (number | null)[] }[];
+        adjclose?: { adjclose?: (number | null)[] }[];
+      };
+    }[];
+    error?: unknown;
+  };
+}
+
+/** Daily closes for [from, to] inclusive (ISO dates). Empty array on failure. */
+export async function history(symbol: string, from: string, to: string): Promise<DailyClose[]> {
+  const period1 = Math.floor(Date.parse(`${from}T00:00:00Z`) / 1000);
+  const period2 = Math.floor(Date.parse(`${to}T00:00:00Z`) / 1000) + 86400; // inclusive upper bound
+  const url = `${Q1}/v8/finance/chart/${encodeURIComponent(symbol)}?period1=${period1}&period2=${period2}&interval=1d`;
+  let data: HistoryResp;
+  try {
+    data = await fetchJson<HistoryResp>(url);
+  } catch {
+    return [];
+  }
+  const r = data.chart.result?.[0];
+  const ts = r?.timestamp;
+  if (!ts || ts.length === 0) return [];
+  const closes = r.indicators.quote?.[0]?.close ?? r.indicators.adjclose?.[0]?.adjclose ?? [];
+  const out: DailyClose[] = [];
+  for (let i = 0; i < ts.length; i++) {
+    const c = closes[i];
+    if (c == null || !Number.isFinite(c)) continue;
+    out.push({ date: new Date((ts[i] as number) * 1000).toISOString().slice(0, 10), close: c });
+  }
+  out.sort((a, b) => (a.date < b.date ? -1 : 1));
+  return out;
+}
+
 export async function charts(symbols: string[], concurrency = 6): Promise<Map<string, YahooQuote>> {
   const out = new Map<string, YahooQuote>();
   const settled = await mapPool(symbols, concurrency, (s) => chart(s));

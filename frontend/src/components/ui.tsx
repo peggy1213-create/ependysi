@@ -205,6 +205,7 @@ export function Pill({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={clsx(
         'rounded px-2.5 py-1 text-xs transition-colors',
