@@ -84,8 +84,8 @@ hand-rolled inline SVG (no chart library). Data fetching is a ~90-line
 | **Watchlist** | every watched item in one sortable/filterable table · quick-add bar · group view · right-click to remove · 💼 for holdings · colour-coded ETF premium/discount |
 | **Taiwan** | TAIEX + 外資 flow · sector heatmap (watched TW stocks by turnover) · watched TW list |
 | **ETF Center** | TW ETF grid (NAV / 折溢價 / yield / ex-div) · US ETF grid · pick 2–3 to compare · bond-ETF premium alerts |
-| **Macro** | FX (USD/TWD highlighted) · commodities · crypto · bond-yield / CB-rate placeholders |
-| **Portfolio** | totals · holdings table with expandable lots · allocation donuts (type/region/currency/tag) · rebalancing vs target · dividend calendar · overlap warnings |
+| **Macro** | FX quoted TWD-per-unit (USD/TWD highlighted) · commodities · crypto · bond-yield / CB-rate placeholders |
+| **Portfolio** | totals · holdings table with expandable lots (**＋ add / edit / delete lots**, ＋ log dividends) · allocation donuts (type/region/currency/tag) · rebalancing vs target · dividend calendar · overlap warnings |
 | **Calendar** | upcoming ex-dividend dates · TWSE 2026 holidays · (economic events pending) |
 | **Settings** | create/delete groups · rename/remove tags · set target allocation for rebalancing |
 
@@ -224,6 +224,10 @@ Holdings are stored as **lots** (`holding_lots`) — the same ticker can have
 several buys at different prices/dates. Adding a lot for a ticker you don't track
 yet **auto-adds it to the watchlist** (tagged `portfolio`).
 
+In the UI: **＋ add lot** in the Holdings card header opens a form; expand a
+position and each lot row has **edit** / **delete**. **＋ log dividend** on the
+Dividend Calendar card records a payout.
+
 | Method & path                          | Purpose                                              |
 | -------------------------------------- | --------------------------------------------------- |
 | `GET /api/portfolio`                   | positions (aggregated + per-lot), P&L, weights, totals — all in TWD |
@@ -238,8 +242,10 @@ yet **auto-adds it to the watchlist** (tagged `portfolio`).
 | `POST /api/portfolio/refresh`          | refresh quotes + FX + sector + ETF holdings now      |
 
 **Valuation** — current price from the quote cache; market value and P&L computed
-in original currency *and* TWD (FX derived from the always-on `TWD=X` / `JPY=X` /
-`CNY=X` / `EURUSD=X` quotes). Each position carries weight %, target/stop upside/
+in original currency *and* TWD. All FX pairs are quoted **TWD-per-unit**
+(`TWD=X` = USD/TWD, `JPYTWD=X` = JPY/TWD, …), so the quote price is the
+conversion factor directly (`services/fx.ts`). Each position carries weight %,
+target/stop upside/
 downside, dividend yield, and estimated annual income.
 
 **Allocation** — `by_type` (Stocks / ETFs / Commodities / …), `by_region`

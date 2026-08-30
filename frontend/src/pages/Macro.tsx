@@ -18,12 +18,17 @@ export default function Macro() {
   return (
     <div className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="FX rates">
+        <Card title="FX rates — TWD per unit">
           <Async q={markets}>
             {(m) => (
               <ul className="divide-y divide-border/60">
                 {m.fx.map((q) => (
-                  <QuoteLine key={q.ticker} q={q} dp={q.ticker === 'DX-Y.NYB' ? 2 : 4} highlight={q.ticker === 'TWD=X'} />
+                  <QuoteLine
+                    key={q.ticker}
+                    q={q}
+                    dp={q.price != null && Math.abs(q.price) < 1 ? 4 : 2}
+                    highlight={q.ticker === 'TWD=X'}
+                  />
                 ))}
               </ul>
             )}

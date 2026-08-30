@@ -18,10 +18,12 @@
     ],
     "fx": [
       { "ticker": "TWD=X", "name": "USD/TWD", "type": "fx" },
-      { "ticker": "DX-Y.NYB", "name": "US Dollar Index (DXY)", "type": "fx" },
-      { "ticker": "EURUSD=X", "name": "EUR/USD", "type": "fx" },
-      { "ticker": "JPY=X", "name": "USD/JPY", "type": "fx" },
-      { "ticker": "CNY=X", "name": "USD/CNY", "type": "fx" }
+      { "ticker": "JPYTWD=X", "name": "JPY/TWD", "type": "fx" },
+      { "ticker": "EURTWD=X", "name": "EUR/TWD", "type": "fx" },
+      { "ticker": "CNYTWD=X", "name": "CNY/TWD", "type": "fx" },
+      { "ticker": "HKDTWD=X", "name": "HKD/TWD", "type": "fx" },
+      { "ticker": "GBPTWD=X", "name": "GBP/TWD", "type": "fx" },
+      { "ticker": "DX-Y.NYB", "name": "US Dollar Index (DXY)", "type": "fx" }
     ],
     "commodities": [
       { "ticker": "GC=F", "name": "Gold", "type": "commodity" },

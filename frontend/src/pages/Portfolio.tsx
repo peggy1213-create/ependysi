@@ -1,12 +1,16 @@
 import { Fragment, useState } from 'react';
 import clsx from 'clsx';
 import { useAllocation, useDividends, useOverlap, usePortfolio } from '../lib/hooks';
-import { useApi } from '../lib/useApi';
-import { Async, Badge, Card, Stat } from '../components/ui';
+import { invalidate, useApi } from '../lib/useApi';
+import { api } from '../lib/api';
+import { Async, Badge, Card, RemoveButton, Stat } from '../components/ui';
 import { Donut } from '../components/charts';
+import { LotForm } from '../components/LotForm';
 import { compact, dateShort, daysUntil, money, num, pct, shares } from '../lib/format';
 import { dirClass } from '../lib/format';
-import type { AllocationBucket, AllocationView, Position } from '../lib/types';
+import type { AllocationBucket, AllocationView, Lot, Position } from '../lib/types';
+
+type LotModal = { mode: 'add' } | { mode: 'edit'; id: number; ticker: string; lot: Lot } | null;
 
 export default function Portfolio() {
   const pf = usePortfolio();
@@ -14,17 +18,24 @@ export default function Portfolio() {
   const overlap = useOverlap();
   const divs = useDividends();
   const settings = useApi<{ settings: Record<string, string> }>('/portfolio/settings');
+  const [lotModal, setLotModal] = useState<LotModal>(null);
+  const [divForm, setDivForm] = useState(false);
+
+  const deleteLot = async (id: number) => {
+    await api.del(`/portfolio/lots/${id}`);
+    invalidate('/portfolio');
+  };
 
   return (
     <div className="space-y-4">
-      <Async q={pf} empty="No holdings — add a lot with the + button or the quick-add on Watchlist.">
+      <Async q={pf}>
         {(p) => (
           <>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <Stat label="Total value" value={money(p.totals.market_value_twd)} sub={`cost ${money(p.totals.cost_twd, 'TWD', true)}`} />
               <Stat label="Unrealized P&L" value={money(p.totals.unrealized_pnl_twd)} sub={pct(p.totals.unrealized_pnl_pct)} accent={p.totals.unrealized_pnl_twd >= 0 ? 'bull' : 'bear'} />
               <Stat label="Today" value={money(p.totals.day_pnl_twd)} accent={p.totals.day_pnl_twd >= 0 ? 'bull' : 'bear'} />
-              <Stat label="Est. income / yr" value={money(p.totals.est_annual_income_twd)} sub={`FX: 1 USD = ${num(p.fx.rates.USD ?? 0, 3)}`} />
+              <Stat label="Est. income / yr" value={money(p.totals.est_annual_income_twd)} sub={`1 USD = ${num(p.fx.rates.USD ?? 0, 3)} TWD`} />
             </div>
             {p.totals.unpriced_tickers.length > 0 && (
               <div className="rounded border border-highlight/30 bg-highlight/10 px-3 py-1.5 text-xs text-highlight">
@@ -32,8 +43,29 @@ export default function Portfolio() {
               </div>
             )}
 
-            <Card title="Holdings" pad={false}>
-              <HoldingsTable positions={p.positions} />
+            <Card
+              title={`Holdings · ${p.totals.positions} positions, ${p.totals.lots} lots`}
+              pad={false}
+              action={
+                <button
+                  onClick={() => setLotModal({ mode: 'add' })}
+                  className="rounded bg-accent px-2 py-1 text-[11px] font-medium text-bg"
+                >
+                  ＋ add lot
+                </button>
+              }
+            >
+              {p.positions.length === 0 ? (
+                <div className="p-6 text-center text-xs text-fg-muted">
+                  No holdings yet — click <span className="text-accent">＋ add lot</span>.
+                </div>
+              ) : (
+                <HoldingsTable
+                  positions={p.positions}
+                  onEdit={(ticker, lot) => setLotModal({ mode: 'edit', id: lot.id, ticker, lot })}
+                  onDelete={deleteLot}
+                />
+              )}
             </Card>
           </>
         )}
@@ -60,7 +92,18 @@ export default function Portfolio() {
         />
 
         {/* dividend calendar */}
-        <Card title="Dividend calendar">
+        <Card
+          title="Dividend calendar"
+          action={
+            <button
+              onClick={() => setDivForm((v) => !v)}
+              className="text-[11px] text-fg-muted hover:text-fg"
+            >
+              {divForm ? '× close' : '＋ log dividend'}
+            </button>
+          }
+        >
+          {divForm && <DividendForm onDone={() => setDivForm(false)} />}
           <Async q={divs}>
             {(d) => (
               <div className="space-y-3">
@@ -154,12 +197,26 @@ export default function Portfolio() {
           )}
         </Async>
       </Card>
+
+      <LotForm
+        open={lotModal !== null}
+        onClose={() => setLotModal(null)}
+        editing={lotModal?.mode === 'edit' ? lotModal : null}
+      />
     </div>
   );
 }
 
 // ── Holdings table with expandable lots ────────────────────────────────────
-function HoldingsTable({ positions }: { positions: Position[] }) {
+function HoldingsTable({
+  positions,
+  onEdit,
+  onDelete,
+}: {
+  positions: Position[];
+  onEdit: (ticker: string, lot: Lot) => void;
+  onDelete: (id: number) => void | Promise<void>;
+}) {
   const [open, setOpen] = useState<string | null>(null);
   if (positions.length === 0) return <div className="p-4 text-xs text-fg-muted">no positions</div>;
   return (
@@ -176,6 +233,7 @@ function HoldingsTable({ positions }: { positions: Position[] }) {
             <th>Today</th>
             <th>Weight</th>
             <th>Target / Stop</th>
+            <th> </th>
           </tr>
         </thead>
         <tbody>
@@ -220,10 +278,11 @@ function HoldingsTable({ positions }: { positions: Position[] }) {
                     <span className="text-fg-muted">—</span>
                   )}
                 </td>
+                <td />
               </tr>
               {open === p.ticker &&
                 p.lots.map((l) => (
-                  <tr key={l.id} className="border-b border-border/30 bg-bg/40 text-xs [&>td]:px-3 [&>td]:py-1 [&>td]:text-right [&>td:first-child]:text-left [&>td:first-child]:pl-8">
+                  <tr key={l.id} className="group border-b border-border/30 bg-bg/40 text-xs [&>td]:px-3 [&>td]:py-1 [&>td]:text-right [&>td:first-child]:text-left [&>td:first-child]:pl-8">
                     <td className="text-fg-muted">{l.purchase_date ?? 'lot ' + l.id}</td>
                     <td className="tnum">{shares(l.shares)}</td>
                     <td className="tnum text-fg-muted">
@@ -234,8 +293,22 @@ function HoldingsTable({ positions }: { positions: Position[] }) {
                     <td className={clsx('tnum', dirClass(l.unrealized_pnl_twd))}>
                       {money(l.unrealized_pnl_twd, 'TWD', true)} {pct(l.unrealized_pnl_pct)}
                     </td>
-                    <td colSpan={3} className="text-left text-fg-muted">
+                    <td colSpan={2} className="truncate text-left text-fg-muted">
                       {l.notes}
+                    </td>
+                    <td className="text-right">
+                      <button
+                        onClick={() => onEdit(p.ticker, l)}
+                        className="opacity-50 transition-opacity hover:opacity-100 text-fg-muted hover:text-accent"
+                        title="Edit lot"
+                      >
+                        edit
+                      </button>
+                    </td>
+                    <td>
+                      <span className="opacity-50 transition-opacity group-hover:opacity-100">
+                        <RemoveButton onConfirm={() => onDelete(l.id)} label="delete" />
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -244,6 +317,58 @@ function HoldingsTable({ positions }: { positions: Position[] }) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+function DividendForm({ onDone }: { onDone: () => void }) {
+  const [f, setF] = useState({ ticker: '', ex_date: '', amount_per_share: '', shares: '', currency: 'TWD', note: '' });
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setF((s) => ({ ...s, [k]: e.target.value }));
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    if (!f.ticker.trim() || f.amount_per_share.trim() === '') {
+      setErr('Ticker and amount per share are required.');
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.post('/portfolio/dividends', {
+        ticker: f.ticker.trim().toUpperCase(),
+        ex_date: f.ex_date || null,
+        amount_per_share: Number(f.amount_per_share),
+        shares: f.shares.trim() === '' ? null : Number(f.shares),
+        currency: f.currency.trim().toUpperCase() || 'TWD',
+        note: f.note.trim() || null,
+      });
+      invalidate('/portfolio/dividends');
+      onDone();
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : 'failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const ic = 'rounded border border-border bg-bg px-2 py-1 text-xs outline-none focus:border-accent';
+  return (
+    <form onSubmit={submit} className="mb-3 space-y-2 rounded border border-border bg-bg/40 p-2.5">
+      <div className="grid grid-cols-2 gap-2">
+        <input value={f.ticker} onChange={set('ticker')} placeholder="ticker" className={ic} />
+        <input type="date" value={f.ex_date} onChange={set('ex_date')} className={ic} />
+        <input type="number" step="any" value={f.amount_per_share} onChange={set('amount_per_share')} placeholder="amount / share" className={ic} />
+        <input type="number" step="any" value={f.shares} onChange={set('shares')} placeholder="shares (opt)" className={ic} />
+        <input value={f.currency} onChange={set('currency')} placeholder="TWD" className={ic} />
+        <input value={f.note} onChange={set('note')} placeholder="note (opt)" className={ic} />
+      </div>
+      {err && <div className="text-xs text-bearish">{err}</div>}
+      <button disabled={busy} className="rounded bg-accent px-3 py-1 text-xs text-bg disabled:opacity-50">
+        {busy ? 'saving…' : 'save dividend'}
+      </button>
+    </form>
   );
 }
 

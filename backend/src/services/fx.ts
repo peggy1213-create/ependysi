@@ -1,11 +1,12 @@
 /**
- * Currency → TWD conversion, derived from the always-on FX quotes in the cache.
+ * Currency → TWD conversion, read straight from the always-on FX quotes.
  *
- * Yahoo conventions:
- *   TWD=X    = USD/TWD  (e.g. 31.6)
- *   JPY=X    = USD/JPY
- *   CNY=X    = USD/CNY
- *   EURUSD=X = EUR/USD
+ * All pairs are quoted TWD-per-unit, so the quote price IS the conversion factor:
+ *   TWD=X     = USD/TWD   (≈ 31.6 TWD per USD)
+ *   JPYTWD=X  = JPY/TWD   (≈ 0.195 TWD per JPY)
+ *   EURTWD=X  = EUR/TWD
+ *   CNYTWD=X  = CNY/TWD
+ *   HKDTWD=X  = HKD/TWD
  */
 import { getQuotes } from '../repos/quotes.repo.js';
 
@@ -16,23 +17,25 @@ export interface FxTable {
   missing: string[];
 }
 
-export function ratesToTwd(): FxTable {
-  const q = getQuotes(['TWD=X', 'JPY=X', 'CNY=X', 'EURUSD=X']);
-  const usdTwd = q.get('TWD=X')?.price ?? null;
-  const usdJpy = q.get('JPY=X')?.price ?? null;
-  const usdCny = q.get('CNY=X')?.price ?? null;
-  const eurUsd = q.get('EURUSD=X')?.price ?? null;
+const PAIRS: [currency: string, symbol: string][] = [
+  ['USD', 'TWD=X'],
+  ['JPY', 'JPYTWD=X'],
+  ['EUR', 'EURTWD=X'],
+  ['CNY', 'CNYTWD=X'],
+  ['HKD', 'HKDTWD=X'],
+  ['GBP', 'GBPTWD=X'],
+];
 
+export function ratesToTwd(): FxTable {
+  const q = getQuotes(PAIRS.map(([, s]) => s));
   const rates: Record<string, number> = { TWD: 1 };
   const missing: string[] = [];
 
-  if (usdTwd) rates.USD = usdTwd;
-  else missing.push('USD');
-
-  if (usdTwd && usdJpy) rates.JPY = usdTwd / usdJpy;
-  if (usdTwd && usdCny) rates.CNY = usdTwd / usdCny;
-  if (usdTwd && eurUsd) rates.EUR = usdTwd * eurUsd;
-  if (usdTwd) rates.HKD = usdTwd / 7.8; // pegged; good enough without a HKD=X quote
+  for (const [ccy, sym] of PAIRS) {
+    const p = q.get(sym)?.price ?? null;
+    if (p) rates[ccy] = p;
+    else missing.push(ccy);
+  }
 
   const asOf = q.get('TWD=X')?.fetched_at ?? null;
   return { rates, asOf, missing };
