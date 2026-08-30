@@ -3,6 +3,7 @@ import { watchlistRouter } from './watchlist.js';
 import { marketsRouter } from './markets.js';
 import { taiwanRouter } from './taiwan.js';
 import { portfolioRouter } from './portfolio.js';
+import { alertsRouter } from './alerts.js';
 import { macroRouter } from './macro.js';
 import { calendarRouter } from './calendar.js';
 import { sentimentRouter } from './sentiment.js';
@@ -20,6 +21,7 @@ apiRouter.use('/watchlist', watchlistRouter); // user-managed tracked instrument
 apiRouter.use('/markets', marketsRouter); // always-on: indices, FX, commodities, VIX
 apiRouter.use('/taiwan', taiwanRouter); // TW institutional flows, per-ticker quote
 apiRouter.use('/portfolio', portfolioRouter); // holdings + P&L
+apiRouter.use('/alerts', alertsRouter); // target / stop-loss price alerts
 apiRouter.use('/news', newsRouter); // market news + AI analysis
 
 // Refresh ALL data now (there is no background scheduler). ?securities=1 also

@@ -10,6 +10,7 @@ import {
   computeOverlap,
 } from '../services/portfolio.js';
 import { dividendSummary, autoDetectDividends } from '../services/dividends.js';
+import { detectAlerts } from '../services/alerts.js';
 import {
   refreshWatchlistQuotes,
   refreshEtfDetails,
@@ -216,7 +217,8 @@ portfolioRouter.post('/refresh', async (_req, res, next) => {
     ]);
     // Fresh ex-dividend dates are now cached — log any that have passed.
     const dividends = autoDetectDividends();
-    res.json({ quotes, etf, twFund, divHist, meta, holdings, dividends });
+    const alerts = detectAlerts();
+    res.json({ quotes, etf, twFund, divHist, meta, holdings, dividends, alerts });
   } catch (err) {
     next(err);
   }

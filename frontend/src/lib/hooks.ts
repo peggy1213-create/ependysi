@@ -1,5 +1,6 @@
 import { useApi } from './useApi';
 import type {
+  AlertsResponse,
   AllocationView,
   AnalysisMode,
   DividendSummary,
@@ -22,6 +23,7 @@ export const useMarkets = () => useApi<MarketsResponse>('/markets', { refetchInt
 export const usePortfolio = () =>
   useApi<PortfolioSnapshot>('/portfolio', { refetchInterval: MIN });
 export const useAllocation = () => useApi<AllocationView>('/portfolio/allocation');
+export const useAlerts = () => useApi<AlertsResponse>('/alerts', { refetchInterval: MIN });
 export const useOverlap = () => useApi<OverlapView>('/portfolio/overlap');
 export const useDividends = () => useApi<DividendSummary>('/portfolio/dividends');
 export const useGroups = () => useApi<{ groups: Group[] }>('/watchlist/groups');
