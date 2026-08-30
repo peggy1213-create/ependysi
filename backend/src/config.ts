@@ -73,10 +73,11 @@ export const env = {
     alphaVantage: process.env.ALPHA_VANTAGE_API_KEY ?? '',
     finnhub: process.env.FINNHUB_API_KEY ?? '',
     // Google AI Studio (Gemini) key for the News tab's AI briefing.
-    gemini: process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? '',
+    gemini: (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim(),
   },
-  // Gemini model for the News tab's AI analysis.
-  geminiModel: process.env.GEMINI_MODEL ?? 'gemini-3.6-flash',
+  // Gemini model for the News tab's AI analysis. `||` (not `??`) so an empty
+  // `GEMINI_MODEL=` line in .env falls back instead of producing a bad URL.
+  geminiModel: process.env.GEMINI_MODEL?.trim() || 'gemini-3.6-flash',
 };
 
 // Writable data dir. Defaults to backend/data (dev); the desktop app points
