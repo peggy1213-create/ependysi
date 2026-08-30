@@ -203,6 +203,23 @@ export interface PortfolioSnapshot {
   positions: Position[];
 }
 
+export type AlertKind = 'target' | 'stop';
+export interface PriceAlert {
+  id: number;
+  ticker: string;
+  kind: AlertKind;
+  threshold: number;
+  price: number;
+  currency: string | null;
+  triggered_at: string;
+  cleared_at: string | null;
+  acked_at: string | null;
+}
+export interface AlertsResponse {
+  alerts: PriceAlert[];
+  unacked: number;
+}
+
 export interface AllocationBucket {
   key: string;
   label: string;

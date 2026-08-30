@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import clsx from 'clsx';
 import { AddModal } from './components/AddModal';
+import { AlertsBell } from './components/AlertsBell';
 import { invalidate } from './lib/useApi';
 import { api } from './lib/api';
 import { ymd } from './lib/format';
@@ -45,6 +46,7 @@ export default function App() {
       invalidate('/portfolio');
       invalidate('/taiwan');
       invalidate('/news');
+      invalidate('/alerts');
       const now = Date.now();
       setUpdatedAt(now);
       try {
@@ -104,6 +106,7 @@ export default function App() {
             >
               更新 {ymd(updatedAt)}
             </span>
+            <AlertsBell />
             <button
               onClick={refreshAll}
               disabled={refreshing}

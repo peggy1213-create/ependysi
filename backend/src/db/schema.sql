@@ -137,6 +137,23 @@ CREATE TABLE IF NOT EXISTS etf_holdings (
   PRIMARY KEY (etf_ticker, component_ticker, component_name)
 );
 
+-- ── Price alerts (target / stop-loss crossings on portfolio positions) ───────
+-- One row per crossing event. Re-arms when the price moves back to the safe
+-- side (cleared_at set), so a later re-cross records a fresh event. Detection
+-- runs inside refreshAll() — there is no background scheduler.
+CREATE TABLE IF NOT EXISTS price_alerts (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  ticker       TEXT    NOT NULL,
+  kind         TEXT    NOT NULL,   -- 'target' | 'stop'
+  threshold    REAL    NOT NULL,   -- target_price / stop_loss at trigger time
+  price        REAL    NOT NULL,   -- position price when it triggered
+  currency     TEXT,               -- position currency (display only)
+  triggered_at TEXT    NOT NULL,
+  cleared_at   TEXT,               -- set when price later moved back across → re-armed
+  acked_at     TEXT                -- set when the user acknowledges it
+);
+CREATE INDEX IF NOT EXISTS idx_price_alerts_lookup ON price_alerts(ticker, kind, id);
+
 -- ── Key/value settings ──────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS settings (
   key   TEXT PRIMARY KEY,

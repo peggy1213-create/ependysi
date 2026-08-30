@@ -18,6 +18,7 @@ import { refreshEtfHoldings } from './etfHoldings.js';
 import { refreshTwSecurities } from './twSecurities.js';
 import { refreshNews } from './news.js';
 import { autoDetectDividends } from './dividends.js';
+import { detectAlerts } from './alerts.js';
 import { countTwSecurities } from '../repos/securities.repo.js';
 
 export type RefreshSummary = Record<string, unknown>;
@@ -56,6 +57,13 @@ export async function refreshAll(opts: { securities?: boolean } = {}): Promise<R
     summary.dividendsDetected = autoDetectDividends();
   } catch (err) {
     summary.dividendsDetected = { error: (err as Error)?.message ?? 'failed' };
+  }
+
+  // Fresh quotes are cached — check target / stop-loss crossings.
+  try {
+    summary.alerts = detectAlerts();
+  } catch (err) {
+    summary.alerts = { error: (err as Error)?.message ?? 'failed' };
   }
 
   return summary;
