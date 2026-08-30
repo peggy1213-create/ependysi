@@ -55,7 +55,7 @@ export default function News() {
           }
         >
           {analyzing ? (
-            <Spinner label="Claude is reading the headlines" />
+            <Spinner label="Gemini is reading the headlines" />
           ) : err ? (
             <div className="rounded border border-bearish/30 bg-bearish/10 p-2 text-xs text-bearish">{err}</div>
           ) : latest ? (
@@ -63,12 +63,12 @@ export default function News() {
               <Markdown text={latest.content} />
               <div className="mt-3 border-t border-border pt-2 text-[10px] text-fg-muted">
                 {latest.model} · {latest.headline_count} headlines · {ago(latest.created_at)}
-                {!aiEnabled && ' · set ANTHROPIC_API_KEY to refresh'}
+                {!aiEnabled && ' · set GEMINI_API_KEY to refresh'}
               </div>
             </div>
           ) : !aiEnabled ? (
             <div className="text-xs text-fg-muted">
-              Set <code className="text-fg-secondary">ANTHROPIC_API_KEY</code> in{' '}
+              Set <code className="text-fg-secondary">GEMINI_API_KEY</code> in{' '}
               <code className="text-fg-secondary">backend/.env</code> and restart to enable AI
               analysis. News fetching works without it.
             </div>
