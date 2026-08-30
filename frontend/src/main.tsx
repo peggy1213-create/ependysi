@@ -6,7 +6,6 @@ import App from './App.tsx';
 import Overview from './pages/Overview.tsx';
 import Watchlist from './pages/Watchlist.tsx';
 import News from './pages/News.tsx';
-import EtfCenter from './pages/EtfCenter.tsx';
 import Macro from './pages/Macro.tsx';
 import Portfolio from './pages/Portfolio.tsx';
 import Calendar from './pages/Calendar.tsx';
@@ -20,7 +19,6 @@ const router = createBrowserRouter([
       { index: true, element: <Overview /> },
       { path: 'watchlist', element: <Watchlist /> },
       { path: 'news', element: <News /> },
-      { path: 'etf', element: <EtfCenter /> },
       { path: 'macro', element: <Macro /> },
       { path: 'portfolio', element: <Portfolio /> },
       { path: 'calendar', element: <Calendar /> },

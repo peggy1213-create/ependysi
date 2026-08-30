@@ -13,7 +13,6 @@ const TABS = [
   { to: '/', label: 'Overview', end: true },
   { to: '/watchlist', label: 'Watchlist' },
   { to: '/news', label: 'News' },
-  { to: '/etf', label: 'ETF Center' },
   { to: '/macro', label: 'Macro' },
   { to: '/portfolio', label: 'Portfolio' },
   { to: '/calendar', label: 'Calendar' },

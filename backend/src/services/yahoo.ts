@@ -245,6 +245,34 @@ interface DividendEvents {
   dividends?: Record<string, { amount?: number; date?: number }>;
 }
 
+export interface YahooAnalystTarget {
+  mean: number | null; // consensus (mean) target price, in the security's currency
+  high: number | null;
+  low: number | null;
+  count: number | null; // number of analyst opinions behind the consensus
+  currency: string | null;
+}
+
+/**
+ * Analyst / broker consensus target price (Yahoo `financialData`). For Taiwan
+ * large caps this is predominantly foreign-broker research (外資目標價); returns
+ * null when the ticker has no analyst coverage.
+ */
+export async function analystTarget(symbol: string): Promise<YahooAnalystTarget | null> {
+  const r = await quoteSummary(symbol, 'financialData');
+  const fd = r?.financialData;
+  const mean = fd?.targetMeanPrice?.raw ?? null;
+  if (mean == null) return null;
+  const count = fd?.numberOfAnalystOpinions?.raw ?? null;
+  return {
+    mean: round(mean, 2),
+    high: fd?.targetHighPrice?.raw != null ? round(fd.targetHighPrice.raw, 2) : null,
+    low: fd?.targetLowPrice?.raw != null ? round(fd.targetLowPrice.raw, 2) : null,
+    count: count != null ? Math.round(count) : null,
+    currency: fd?.financialCurrency ?? null,
+  };
+}
+
 export interface YahooProfile {
   sector: string | null;
   industry: string | null;
@@ -309,6 +337,13 @@ interface QuoteSummaryResult {
   defaultKeyStatistics?: { totalAssets?: RawNum };
   fundProfile?: { feesExpensesInvestment?: { annualReportExpenseRatio?: RawNum } };
   price?: { marketCap?: RawNum };
+  financialData?: {
+    targetMeanPrice?: RawNum;
+    targetHighPrice?: RawNum;
+    targetLowPrice?: RawNum;
+    numberOfAnalystOpinions?: RawNum;
+    financialCurrency?: string;
+  };
   assetProfile?: { sector?: string; industry?: string };
   summaryProfile?: { sector?: string; industry?: string };
   topHoldings?: {

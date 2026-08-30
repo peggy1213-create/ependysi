@@ -44,6 +44,11 @@ CREATE TABLE IF NOT EXISTS quote_cache (
   next_ex_dividend_date TEXT,
   last_dividend        REAL,   -- most recent cash dividend per share (Yahoo events)
   last_dividend_date   TEXT,   -- ex-date of that payout, ISO
+  target_mean_price    REAL,   -- analyst/broker consensus target price (外資目標價, Yahoo financialData)
+  target_high_price    REAL,
+  target_low_price     REAL,
+  analyst_count        INTEGER,-- number of analyst opinions behind the consensus
+  target_price_at      TEXT,   -- when the target was last fetched, ISO
   extra                TEXT,   -- JSON blob for source-specific extras
   source               TEXT,
   fetched_at           TEXT NOT NULL

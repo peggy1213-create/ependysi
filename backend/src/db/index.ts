@@ -39,6 +39,11 @@ function ensureColumns(): void {
     quote_cache: {
       last_dividend: 'REAL',
       last_dividend_date: 'TEXT',
+      target_mean_price: 'REAL',
+      target_high_price: 'REAL',
+      target_low_price: 'REAL',
+      analyst_count: 'INTEGER',
+      target_price_at: 'TEXT',
     },
   };
   for (const [table, cols] of Object.entries(add)) {

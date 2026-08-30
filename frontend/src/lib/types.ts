@@ -27,6 +27,12 @@ export interface WatchItem {
   next_ex_dividend_date: string | null;
   foreign_net: number | null;
   foreign_net_date: string | null;
+  target_mean_price: number | null;
+  target_high_price: number | null;
+  target_low_price: number | null;
+  analyst_count: number | null;
+  target_upside_pct: number | null;
+  target_price_at: string | null;
   region: 'Taiwan' | 'US' | 'Other';
   sector: string | null;
   tags: string[];
