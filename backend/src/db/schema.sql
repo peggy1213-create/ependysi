@@ -160,7 +160,9 @@ CREATE INDEX IF NOT EXISTS idx_news_published ON news_items(published_at DESC);
 CREATE TABLE IF NOT EXISTS news_analysis (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   created_at  TEXT NOT NULL,
+  mode        TEXT NOT NULL DEFAULT 'standard',  -- 'standard' | 'deep'
   model       TEXT,
   headline_count INTEGER,
-  content     TEXT NOT NULL        -- markdown from Claude
+  content     TEXT NOT NULL,       -- markdown from the AI briefing
+  pinned      INTEGER NOT NULL DEFAULT 0  -- user-kept: survives history pruning
 );

@@ -245,8 +245,11 @@ Yahoo so you can find something by number or name before adding it.
 | `GET /api/taiwan/institutional/:t`  | 外資/投信/自營商 net-flow history for a ticker    |
 | `GET /api/taiwan/market-flow?days=` | market-wide 三大法人 net (TWD), last N trading days |
 | `GET /api/news?region=`             | market headlines (`global` / `taiwan` filter)  |
-| `GET /api/news/analysis`            | the latest AI briefing (cached)                 |
-| `POST /api/news/analyze`            | run a fresh AI briefing (needs `GEMINI_API_KEY`) |
+| `GET /api/news/analysis?mode=`      | the latest cached AI briefing (`standard` / `deep`) |
+| `GET /api/news/analyses?mode=`      | briefing history for a mode (metadata, pinned first) |
+| `GET /api/news/analysis/:id`        | one past briefing, full content                 |
+| `POST /api/news/analysis/:id/pin`   | body `{pinned}` — keep a briefing past the 30-day prune |
+| `POST /api/news/analyze`            | run a fresh AI briefing, body `{mode?}` (needs `GEMINI_API_KEY`) |
 | `POST /api/refresh`                 | run every fetch job now (`?securities=1` also rebuilds the TW master) |
 
 Every watchlist item is returned in one **normalized shape**: `ticker, name,
@@ -326,18 +329,34 @@ All / Global / TW filter.
 
 `POST /api/news/analyze` ([`services/newsAnalysis.ts`](backend/src/services/newsAnalysis.ts))
 sends the recent headlines **plus your watchlist and current holdings** to
-Gemini and gets back a Markdown briefing: top stories, themes in focus, which of
-your tracked tickers the news touches, and things to watch. It's framed as
-information/education — the prompt forbids specific buy/sell calls and price
+Gemini and gets back a Markdown briefing. It's framed as information/education —
+both modes forbid the model giving its *own* buy/sell/hold calls or price
 targets, and the output ends with a *"not financial advice"* disclaimer.
+
+Two modes (pill toggle in the card header, `mode` on the request body):
+
+- **Briefing** (`standard`) — the tight ~400-word digest: top stories, themes in
+  focus, which of your tracked tickers the news touches, and things to watch.
+- **Deep dive** (`deep`) — a position-by-position research note: per-ticker news
+  read, valuation context and analyst consensus (recommendation + price targets)
+  **retrieved from Yahoo Finance and reported as attributed third-party data**,
+  balanced bull/bear cases, plus scenarios and a calendar. Pulls fundamentals
+  for up to 20 watchlist/holding tickers, so it's slower and uses a larger model
+  budget. Uses `GEMINI_DEEP_MODEL` if set, else `GEMINI_MODEL`.
 
 - Needs `GEMINI_API_KEY` in `backend/.env` (get one at
   [aistudio.google.com/apikey](https://aistudio.google.com/apikey)). Without it
   the tab still shows headlines; the Analyze button is replaced by a setup note.
-- Model defaults to `gemini-3.6-flash`; override with `GEMINI_MODEL`. Each
-  analysis is one API call.
-- The latest briefing is cached (`GET /api/news/analysis`) and shown until you
-  refresh it.
+- Model defaults to `gemini-3.6-flash`; override with `GEMINI_MODEL`
+  (and optionally `GEMINI_DEEP_MODEL`). Each analysis is one API call
+  (`deep` also makes up to 20 keyless Yahoo requests).
+- Each mode's latest briefing is cached independently
+  (`GET /api/news/analysis?mode=…`) and shown until you refresh it. The card
+  shows its "Last updated" date/time.
+- **History** — every run is kept. The card has a collapsible history list (per
+  mode); click a past run to view it. Hit **☆ save** to pin one — pinned
+  briefings are kept indefinitely, unpinned ones are pruned after 30 days (the
+  newest per mode is always kept).
 
 ## Refreshing data
 

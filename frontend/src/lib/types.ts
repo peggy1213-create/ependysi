@@ -93,16 +93,23 @@ export interface NewsResponse {
   items: NewsItem[];
   ai_enabled: boolean;
 }
+export type AnalysisMode = 'standard' | 'deep';
 export interface NewsAnalysis {
   id: number;
   created_at: string;
+  mode: AnalysisMode;
   model: string | null;
   headline_count: number | null;
   content: string;
+  pinned: boolean;
 }
+export type NewsAnalysisMeta = Omit<NewsAnalysis, 'content'>;
 export interface NewsAnalysisResponse {
   analysis: NewsAnalysis | null;
   ai_enabled: boolean;
+}
+export interface NewsAnalysesResponse {
+  analyses: NewsAnalysisMeta[];
 }
 export interface MarketsResponse {
   indices: MarketQuote[];

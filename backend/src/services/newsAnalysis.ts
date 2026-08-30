@@ -2,15 +2,26 @@
  * AI news analysis (News tab). Sends recent headlines + the user's watchlist and
  * portfolio to Gemini and asks for an informational market digest.
  *
- * Framed as educational market commentary, not personalised financial advice —
- * the prompt forbids specific buy/sell calls and price targets and requires a
- * disclaimer. Needs GEMINI_API_KEY (Google AI Studio).
+ * Two modes:
+ *   - 'standard' — a tight ~400-word market briefing (the original).
+ *   - 'deep'     — an in-depth research note: per-position bull/bear framing,
+ *                  valuation context, and analyst-consensus figures retrieved
+ *                  from Yahoo Finance and reported as attributed third-party data.
+ *
+ * Both modes are framed as educational market commentary, not personalised
+ * financial advice — the prompts forbid the model giving its own buy/sell/hold
+ * calls or its own price targets, and require a disclaimer. Needs GEMINI_API_KEY
+ * (Google AI Studio).
  */
 import { env } from '../config.js';
 import { listNews, saveAnalysis, latestAnalysis } from '../repos/news.repo.js';
-import type { NewsAnalysis } from '../repos/news.repo.js';
+import type { NewsAnalysis, AnalysisMode } from '../repos/news.repo.js';
 import { listItems } from '../repos/watchlist.repo.js';
+import { toYahooSymbol } from '../lib/ticker.js';
+import { fetchTickerFundamentals } from './yahoo.js';
+import type { TickerFundamentals } from './yahoo.js';
 import { computePortfolio } from './portfolio.js';
+import { mapPool } from '../lib/http.js';
 
 export class NoApiKeyError extends Error {
   constructor() {
@@ -29,7 +40,7 @@ export class GeminiApiError extends Error {
   }
 }
 
-const SYSTEM = `You are a markets news analyst writing a briefing for one retail investor based in Taiwan (base currency TWD). You are given recent headlines and the investor's watchlist and current holdings.
+const SYSTEM_STANDARD = `You are a markets news analyst writing a briefing for one retail investor based in Taiwan (base currency TWD). You are given recent headlines and the investor's watchlist and current holdings.
 
 Write a concise briefing in Markdown with these sections:
 
@@ -51,17 +62,53 @@ Rules:
 - Keep it tight: aim for ~400 words. No preamble.
 - End with exactly this line in italics: *Not financial advice. AI-generated from public news headlines — verify anything important yourself.*`;
 
-function buildUserMessage(): { text: string; headlineCount: number } {
-  const global = listNews('global', 28);
-  const taiwan = listNews('taiwan', 20);
-  const headlineCount = global.length + taiwan.length;
+const SYSTEM_DEEP = `You are a markets analyst writing an in-depth research note for one retail investor in Taiwan (base currency TWD). You are given recent headlines, the investor's watchlist and holdings, and a block of fundamental and analyst-consensus data that was retrieved from Yahoo Finance.
 
-  const fmt = (n: { source: string | null; published_at: string | null; title: string; summary: string | null }) =>
-    `- [${n.source ?? '?'}${n.published_at ? ', ' + n.published_at.slice(0, 16).replace('T', ' ') : ''}] ${n.title}${n.summary ? ` — ${n.summary}` : ''}`;
+Write in Markdown:
+
+## Market backdrop
+3–5 bullets: the macro / news picture right now and the key cross-currents.
+
+## Position-by-position
+For EACH watchlist ticker and holding that today's news OR the data block gives you something real to say about, add a subsection:
+### <ticker> — <name>
+- **News read:** how current headlines touch this name (skip the line if none).
+- **Where the data sits:** current price vs its 52-week range; trailing/forward P/E and P/B, with one line of plain-language context.
+- **Analyst consensus (per Yahoo Finance):** the reported recommendation, the number of analysts, and the mean / low / high target. Quote these as retrieved figures, explicitly attributed to Yahoo Finance — they are third-party opinions, not your view. If the data block has no coverage for this ticker, write "No analyst-consensus data available."
+- **Bull case / Bear case:** 1–2 bullets each, balanced.
+- **Key uncertainties:** what would change the picture.
+Skip any position with nothing substantive to say.
+
+## Scenarios
+2–3 short "if X, then the read for these names is Y" paragraphs tied to upcoming catalysts (data releases, earnings, policy meetings).
+
+## Calendar & risks
+Upcoming events, data, and risks over the next few weeks.
+
+Rules:
+- This is research and education, NOT personalised financial advice. Do NOT give buy / sell / hold recommendations of your own and do NOT invent your own price targets. You MAY report third-party analyst ratings and targets that appear in the supplied data block, clearly attributed to Yahoo Finance.
+- Clearly distinguish reported facts (from the data block) from your own interpretation.
+- Do not fabricate figures. If a number is not in the data block, do not state it.
+- Be balanced — every name gets both a bull and a bear case. Flag uncertainty; don't overstate.
+- Aim for ~150–200 words per position. No preamble.
+- End with exactly this line in italics: *Not financial advice. AI-generated from public news and third-party data — verify anything important yourself. Analyst ratings and price targets shown are third-party opinions collected by Yahoo Finance, not recommendations from this app.*`;
+
+interface TickerRef {
+  ticker: string;
+  name: string | null;
+  yahoo: string;
+}
+
+/** Distinct watchlist + holding tickers, with their Yahoo symbols. */
+function collectTickers(): { refs: TickerRef[]; watchLines: string; holdingsLines: string } {
+  const seen = new Map<string, TickerRef>();
 
   const watch = listItems();
   const watchLines = watch
-    .map((w) => `${w.ticker}${w.name ? ` (${w.name})` : ''} · ${w.market}/${w.type}`)
+    .map((w) => {
+      seen.set(w.ticker, { ticker: w.ticker, name: w.name, yahoo: toYahooSymbol(w.ticker, w.market) });
+      return `${w.ticker}${w.name ? ` (${w.name})` : ''} · ${w.market}/${w.type}`;
+    })
     .join('\n');
 
   let holdingsLines = '(none)';
@@ -69,14 +116,70 @@ function buildUserMessage(): { text: string; headlineCount: number } {
     const pf = computePortfolio();
     if (pf.positions.length) {
       holdingsLines = pf.positions
-        .map((p) => `${p.ticker}${p.name ? ` (${p.name})` : ''} — ${p.weight_pct ?? 0}% of portfolio`)
+        .map((p) => {
+          if (!seen.has(p.ticker))
+            seen.set(p.ticker, {
+              ticker: p.ticker,
+              name: p.name,
+              yahoo: toYahooSymbol(p.ticker, p.market),
+            });
+          return `${p.ticker}${p.name ? ` (${p.name})` : ''} — ${p.weight_pct ?? 0}% of portfolio`;
+        })
         .join('\n');
     }
   } catch {
     /* portfolio optional */
   }
 
-  const text = [
+  return { refs: [...seen.values()], watchLines, holdingsLines };
+}
+
+const n1 = (v: number | null, dp = 2): string => (v == null ? '—' : v.toFixed(dp));
+
+/** Human-readable fundamentals block for the deep-dive prompt. */
+function fmtFundamentals(ref: TickerRef, f: TickerFundamentals): string {
+  const cur = f.currency ? ` ${f.currency}` : '';
+  const range =
+    f.fiftyTwoWeekLow != null && f.fiftyTwoWeekHigh != null
+      ? `${n1(f.fiftyTwoWeekLow)}–${n1(f.fiftyTwoWeekHigh)}`
+      : '—';
+  const analyst =
+    f.analystRecommendation || f.targetMean != null
+      ? `recommendation=${f.analystRecommendation ?? '—'}` +
+        `, analysts=${f.analystCount ?? '—'}` +
+        `, target mean/low/high=${n1(f.targetMean)}/${n1(f.targetLow)}/${n1(f.targetHigh)}${cur}`
+      : 'no analyst-consensus data';
+  return [
+    `- ${ref.ticker}${ref.name ? ` (${ref.name})` : ''} [${ref.yahoo}]`,
+    `    price=${n1(f.currentPrice)}${cur}, 52w range=${range}`,
+    `    trailing P/E=${n1(f.trailingPE)}, forward P/E=${n1(f.forwardPE)}, P/B=${n1(f.priceToBook)}`,
+    `    analyst (Yahoo Finance): ${analyst}`,
+  ].join('\n');
+}
+
+async function buildFundamentalsBlock(refs: TickerRef[]): Promise<string> {
+  const capped = refs.slice(0, 20);
+  const settled = await mapPool(capped, 5, (r) => fetchTickerFundamentals(r.yahoo));
+  const lines: string[] = [];
+  settled.forEach((res, i) => {
+    const ref = capped[i]!;
+    if (res.status === 'fulfilled' && res.value) lines.push(fmtFundamentals(ref, res.value));
+  });
+  if (!lines.length) return '(no fundamental data could be retrieved)';
+  return lines.join('\n');
+}
+
+async function buildUserMessage(mode: AnalysisMode): Promise<{ text: string; headlineCount: number }> {
+  const global = listNews('global', 28);
+  const taiwan = listNews('taiwan', 20);
+  const headlineCount = global.length + taiwan.length;
+
+  const fmt = (n: { source: string | null; published_at: string | null; title: string; summary: string | null }) =>
+    `- [${n.source ?? '?'}${n.published_at ? ', ' + n.published_at.slice(0, 16).replace('T', ' ') : ''}] ${n.title}${n.summary ? ` — ${n.summary}` : ''}`;
+
+  const { refs, watchLines, holdingsLines } = collectTickers();
+
+  const parts = [
     `Today is ${new Date().toISOString().slice(0, 10)}.`,
     '',
     '## GLOBAL HEADLINES',
@@ -90,20 +193,33 @@ function buildUserMessage(): { text: string; headlineCount: number } {
     '',
     '## CURRENT HOLDINGS',
     holdingsLines,
-  ].join('\n');
+  ];
 
-  return { text, headlineCount };
+  if (mode === 'deep') {
+    parts.push(
+      '',
+      `## FUNDAMENTALS & ANALYST DATA (retrieved from Yahoo Finance, ${new Date()
+        .toISOString()
+        .slice(0, 10)})`,
+      'Figures below are third-party data as reported by Yahoo Finance. Analyst recommendation and targets are consensus of external analysts, not advice from this app. Fields may be missing, especially for Taiwan-listed tickers.',
+      '',
+      await buildFundamentalsBlock(refs),
+    );
+  }
+
+  return { text: parts.join('\n'), headlineCount };
 }
 
 interface GeminiResponse {
   candidates?: { content?: { parts?: { text?: string }[] } }[];
 }
 
-export async function analyzeNews(): Promise<NewsAnalysis> {
+export async function analyzeNews(mode: AnalysisMode = 'standard'): Promise<NewsAnalysis> {
   if (!env.keys.gemini) throw new NoApiKeyError();
 
-  const { text, headlineCount } = buildUserMessage();
-  const model = env.geminiModel;
+  const { text, headlineCount } = await buildUserMessage(mode);
+  const system = mode === 'deep' ? SYSTEM_DEEP : SYSTEM_STANDARD;
+  const model = mode === 'deep' ? env.geminiDeepModel : env.geminiModel;
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
   const res = await fetch(url, {
@@ -113,11 +229,14 @@ export async function analyzeNews(): Promise<NewsAnalysis> {
       'x-goog-api-key': env.keys.gemini,
     },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM }] },
+      systemInstruction: { parts: [{ text: system }] },
       contents: [{ role: 'user', parts: [{ text }] }],
-      // Headroom: the briefing is ~400 words but newer models spend tokens on
-      // internal reasoning before the visible answer.
-      generationConfig: { maxOutputTokens: 8192, temperature: 0.7 },
+      // Headroom: newer models spend tokens on internal reasoning before the
+      // visible answer. The deep note is also several times longer.
+      generationConfig: {
+        maxOutputTokens: mode === 'deep' ? 16384 : 8192,
+        temperature: mode === 'deep' ? 0.5 : 0.7,
+      },
     }),
   });
 
@@ -131,7 +250,7 @@ export async function analyzeNews(): Promise<NewsAnalysis> {
 
   if (!content) throw new Error('Gemini returned no text content.');
 
-  return saveAnalysis({ model, headline_count: headlineCount, content });
+  return saveAnalysis({ mode, model, headline_count: headlineCount, content });
 }
 
 export { latestAnalysis };

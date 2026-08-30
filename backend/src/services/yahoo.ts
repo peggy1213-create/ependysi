@@ -273,6 +273,52 @@ export async function analystTarget(symbol: string): Promise<YahooAnalystTarget 
   };
 }
 
+export interface TickerFundamentals {
+  currency: string | null;
+  currentPrice: number | null;
+  marketCap: number | null;
+  trailingPE: number | null;
+  forwardPE: number | null;
+  priceToBook: number | null;
+  fiftyTwoWeekLow: number | null;
+  fiftyTwoWeekHigh: number | null;
+  /** analyst consensus, as reported by Yahoo — 'buy' | 'hold' | 'sell' | 'strong_buy' | 'underperform' … */
+  analystRecommendation: string | null;
+  analystCount: number | null;
+  targetMean: number | null;
+  targetLow: number | null;
+  targetHigh: number | null;
+}
+
+/**
+ * Valuation + analyst-consensus snapshot for one instrument, straight from
+ * Yahoo Finance. Every field is nullable — Yahoo populates analyst data well
+ * for US equities and sparsely (often not at all) for .TW / .TWO tickers.
+ * Returns null only when the whole fetch fails.
+ */
+export async function fetchTickerFundamentals(symbol: string): Promise<TickerFundamentals | null> {
+  const r = await quoteSummary(symbol, 'financialData,defaultKeyStatistics,summaryDetail,price');
+  if (!r) return null;
+  const sd = r.summaryDetail ?? {};
+  const fd = r.financialData ?? {};
+  const ks = r.defaultKeyStatistics ?? {};
+  return {
+    currency: r.price?.currency ?? null,
+    currentPrice: fd.currentPrice?.raw ?? sd.previousClose?.raw ?? null,
+    marketCap: r.price?.marketCap?.raw ?? null,
+    trailingPE: sd.trailingPE?.raw ?? null,
+    forwardPE: sd.forwardPE?.raw ?? ks.forwardPE?.raw ?? null,
+    priceToBook: ks.priceToBook?.raw ?? null,
+    fiftyTwoWeekLow: sd.fiftyTwoWeekLow?.raw ?? null,
+    fiftyTwoWeekHigh: sd.fiftyTwoWeekHigh?.raw ?? null,
+    analystRecommendation: fd.recommendationKey ?? null,
+    analystCount: fd.numberOfAnalystOpinions?.raw ?? null,
+    targetMean: fd.targetMeanPrice?.raw ?? null,
+    targetLow: fd.targetLowPrice?.raw ?? null,
+    targetHigh: fd.targetHighPrice?.raw ?? null,
+  };
+}
+
 export interface YahooProfile {
   sector: string | null;
   industry: string | null;
@@ -332,18 +378,25 @@ interface QuoteSummaryResult {
     dividendYield?: RawNum;
     trailingAnnualDividendYield?: RawNum;
     exDividendDate?: RawNum;
+    trailingPE?: RawNum;
+    forwardPE?: RawNum;
+    previousClose?: RawNum;
+    fiftyTwoWeekLow?: RawNum;
+    fiftyTwoWeekHigh?: RawNum;
   };
-  calendarEvents?: { exDividendDate?: RawNum };
-  defaultKeyStatistics?: { totalAssets?: RawNum };
-  fundProfile?: { feesExpensesInvestment?: { annualReportExpenseRatio?: RawNum } };
-  price?: { marketCap?: RawNum };
   financialData?: {
-    targetMeanPrice?: RawNum;
-    targetHighPrice?: RawNum;
-    targetLowPrice?: RawNum;
+    currentPrice?: RawNum;
+    recommendationKey?: string;
     numberOfAnalystOpinions?: RawNum;
+    targetMeanPrice?: RawNum;
+    targetLowPrice?: RawNum;
+    targetHighPrice?: RawNum;
     financialCurrency?: string;
   };
+  calendarEvents?: { exDividendDate?: RawNum };
+  defaultKeyStatistics?: { totalAssets?: RawNum; priceToBook?: RawNum; forwardPE?: RawNum };
+  fundProfile?: { feesExpensesInvestment?: { annualReportExpenseRatio?: RawNum } };
+  price?: { marketCap?: RawNum; currency?: string };
   assetProfile?: { sector?: string; industry?: string };
   summaryProfile?: { sector?: string; industry?: string };
   topHoldings?: {
