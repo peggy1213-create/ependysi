@@ -58,6 +58,16 @@ export function ago(iso: string | null | undefined): string {
   return `${Math.round(s / 86400)}d ago`;
 }
 
+/** YYYY/MM/DD (local time) from a timestamp, ISO string, or Date. */
+export function ymd(input: number | string | Date | null | undefined): string {
+  if (input == null || input === 0) return '—';
+  const d = input instanceof Date ? input : new Date(input);
+  if (Number.isNaN(d.getTime())) return '—';
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}/${m}/${day}`;
+}
+
 export function dateShort(iso: string | null | undefined): string {
   if (!iso) return '—';
   return iso.slice(0, 10);
