@@ -10,11 +10,13 @@ import {
   refreshTwFundamentals,
   refreshMarketFlow,
   refreshTwInstitutional,
+  refreshDividendHistory,
 } from './marketData.js';
 import { refreshInstrumentMeta } from './instrumentMeta.js';
 import { refreshEtfHoldings } from './etfHoldings.js';
 import { refreshTwSecurities } from './twSecurities.js';
 import { refreshNews } from './news.js';
+import { autoDetectDividends } from './dividends.js';
 import { countTwSecurities } from '../repos/securities.repo.js';
 
 export type RefreshSummary = Record<string, unknown>;
@@ -25,6 +27,7 @@ export async function refreshAll(opts: { securities?: boolean } = {}): Promise<R
     ['alwaysOn', refreshAlwaysOn],
     ['etfDetails', refreshEtfDetails],
     ['twFundamentals', refreshTwFundamentals],
+    ['dividendHistory', refreshDividendHistory],
     ['instrumentMeta', refreshInstrumentMeta],
     ['etfHoldings', () => refreshEtfHoldings(false)],
     ['marketFlow', refreshMarketFlow],
@@ -44,5 +47,14 @@ export async function refreshAll(opts: { securities?: boolean } = {}): Promise<R
     summary[name] =
       r.status === 'fulfilled' ? r.value : { error: (r.reason as Error)?.message ?? 'failed' };
   });
+
+  // Now that quotes carry fresh ex-dividend dates, roll any that have passed
+  // into estimated history rows for the user to verify/correct.
+  try {
+    summary.dividendsDetected = autoDetectDividends();
+  } catch (err) {
+    summary.dividendsDetected = { error: (err as Error)?.message ?? 'failed' };
+  }
+
   return summary;
 }

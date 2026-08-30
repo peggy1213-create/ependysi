@@ -119,10 +119,16 @@ export default function Portfolio() {
                     {d.upcoming.map((u) => {
                       const dl = daysUntil(u.ex_date);
                       return (
-                        <li key={u.ticker} className="flex items-center gap-2">
+                        <li key={u.ticker} className="flex min-w-0 items-center gap-2">
                           <span className="font-semibold text-accent">{u.ticker}</span>
-                          <span className="text-fg-secondary">ex {dateShort(u.ex_date)}</span>
+                          {u.name && <span className="truncate text-fg-secondary">{u.name}</span>}
+                          <span className="whitespace-nowrap text-fg-secondary">ex {dateShort(u.ex_date)}</span>
                           {dl != null && dl >= 0 && <Badge tone={dl <= 7 ? 'highlight' : 'muted'}>{dl}d</Badge>}
+                          {u.last_dividend != null && (
+                            <span className="text-fg-muted">
+                              last {num(u.last_dividend, 2)} {u.currency ?? ''}
+                            </span>
+                          )}
                           <span className="ml-auto tnum text-fg-muted">{money(u.est_annual_income_twd)}/yr</span>
                         </li>
                       );
@@ -130,6 +136,28 @@ export default function Portfolio() {
                   </ul>
                 ) : (
                   <div className="text-xs text-fg-muted">No upcoming ex-dividend dates in the cache.</div>
+                )}
+                {d.by_ticker.some((t) => t.last_dividend != null) && (
+                  <div className="border-t border-border pt-2">
+                    <div className="u-label mb-1">Most recent payout / share</div>
+                    <ul className="space-y-0.5 text-xs">
+                      {d.by_ticker
+                        .filter((t) => t.last_dividend != null)
+                        .map((t) => (
+                          <li key={t.ticker} className="flex min-w-0 items-center gap-2">
+                            <span className="font-semibold text-accent">{t.ticker}</span>
+                            {t.name && <span className="truncate text-fg-secondary">{t.name}</span>}
+                            {t.dividend_yield != null && (
+                              <span className="whitespace-nowrap text-fg-muted">{num(t.dividend_yield, 2)}% yld</span>
+                            )}
+                            <span className="ml-auto whitespace-nowrap tnum text-fg-secondary">
+                              {num(t.last_dividend, 2)} {t.currency}
+                            </span>
+                            <span className="whitespace-nowrap tnum text-fg-muted">{dateShort(t.last_dividend_date)}</span>
+                          </li>
+                        ))}
+                    </ul>
+                  </div>
                 )}
                 {d.history.length > 0 && (
                   <div className="border-t border-border pt-2">
@@ -249,6 +277,9 @@ function HoldingsTable({
                 <td className="whitespace-nowrap font-semibold">
                   <span className="text-fg-muted">{open === p.ticker ? '▾' : '▸'} </span>
                   <span className="text-accent">{p.ticker}</span>
+                  {p.name && (
+                    <span className="ml-1.5 font-normal text-fg-secondary">{p.name}</span>
+                  )}
                   {p.lots.length > 1 && (
                     <span className="ml-1.5 rounded bg-border px-1 text-[10px] font-normal text-fg-muted">
                       {p.lots.length} lots

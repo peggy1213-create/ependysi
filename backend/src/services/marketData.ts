@@ -9,6 +9,7 @@ import { upsertQuote } from '../repos/quotes.repo.js';
 import { upsertInstitutional } from '../repos/institutional.repo.js';
 import { recentFlow, upsertFlow } from '../repos/marketFlow.repo.js';
 import { lastTradingDayIso } from '../lib/roc.js';
+import { mapPool } from '../lib/http.js';
 import { toYahooSymbol } from '../lib/ticker.js';
 import * as yahoo from './yahoo.js';
 import * as twse from './twse.js';
@@ -150,6 +151,37 @@ export async function refreshTwFundamentals(): Promise<RefreshResult> {
     updated++;
   }
   return { updated, failed: 0 };
+}
+
+/**
+ * Most-recent cash dividend per share (Yahoo chart events) for watched stocks
+ * and ETFs. Keyless; skips indices / FX / commodities / crypto.
+ */
+export async function refreshDividendHistory(): Promise<RefreshResult> {
+  const items = listItems().filter(
+    (i) => i.type === 'stock' || i.type === 'tw_etf' || i.type === 'us_etf',
+  );
+  if (items.length === 0) return { updated: 0, failed: 0 };
+
+  const settled = await mapPool(items, 5, async (item) => {
+    const hist = await yahoo.dividendHistory(toYahooSymbol(item.ticker, item.market));
+    const last = hist.at(-1);
+    if (!last) return false;
+    upsertQuote({
+      ticker: item.ticker,
+      last_dividend: last.amount,
+      last_dividend_date: last.date,
+    });
+    return true;
+  });
+
+  let updated = 0;
+  let failed = 0;
+  for (const r of settled) {
+    if (r.status === 'rejected') failed++;
+    else if (r.value) updated++;
+  }
+  return { updated, failed };
 }
 
 /** 外資/投信/自營商 net flows for watched Taiwan tickers. */

@@ -165,6 +165,8 @@ export interface Position {
   dividend_yield: number | null;
   est_annual_income_twd: number | null;
   next_ex_dividend_date: string | null;
+  last_dividend: number | null;
+  last_dividend_date: string | null;
   tags: string[];
   priced: boolean;
   lots: Lot[];
@@ -265,6 +267,9 @@ export interface DividendSummary {
     dividend_yield: number | null;
     market_value_twd: number | null;
     est_annual_income_twd: number | null;
+    last_dividend: number | null;
+    last_dividend_date: string | null;
+    currency: string;
   }[];
   upcoming: {
     ticker: string;
@@ -274,6 +279,8 @@ export interface DividendSummary {
     dividend_yield: number | null;
     currency: string | null;
     est_annual_income_twd: number | null;
+    last_dividend: number | null;
+    last_dividend_date: string | null;
   }[];
   history: DividendRow[];
   history_total_twd: number;

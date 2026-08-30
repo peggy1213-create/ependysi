@@ -42,6 +42,8 @@ CREATE TABLE IF NOT EXISTS quote_cache (
   expense_ratio        REAL,
   aum                  REAL,
   next_ex_dividend_date TEXT,
+  last_dividend        REAL,   -- most recent cash dividend per share (Yahoo events)
+  last_dividend_date   TEXT,   -- ex-date of that payout, ISO
   extra                TEXT,   -- JSON blob for source-specific extras
   source               TEXT,
   fetched_at           TEXT NOT NULL

@@ -213,6 +213,38 @@ export async function fundamentals(symbol: string): Promise<YahooFundamentals | 
   };
 }
 
+export interface YahooDividend {
+  date: string; // ISO yyyy-mm-dd (ex-date)
+  amount: number; // cash per share, in the security's currency
+}
+
+/**
+ * Cash dividends per share from the chart events feed (keyless, works for TW
+ * and US). Returned oldest→newest; empty if the ticker pays nothing or Yahoo
+ * has no history.
+ */
+export async function dividendHistory(symbol: string, rangeYears = 2): Promise<YahooDividend[]> {
+  const url = `${Q1}/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=${rangeYears}y&events=div`;
+  let data: ChartResp & { chart: { result?: { events?: DividendEvents }[] } };
+  try {
+    data = await fetchJson(url);
+  } catch {
+    return [];
+  }
+  const divs = data.chart.result?.[0]?.events?.dividends ?? {};
+  return Object.values(divs)
+    .filter(
+      (d): d is { amount: number; date: number } =>
+        typeof d?.amount === 'number' && d.amount > 0 && typeof d.date === 'number',
+    )
+    .map((d) => ({ date: new Date(d.date * 1000).toISOString().slice(0, 10), amount: round(d.amount, 4) }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+interface DividendEvents {
+  dividends?: Record<string, { amount?: number; date?: number }>;
+}
+
 export interface YahooProfile {
   sector: string | null;
   industry: string | null;
