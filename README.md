@@ -10,8 +10,9 @@ P&L, an economic calendar, and market sentiment. Base currency: **TWD**.
 > P&L in TWD, allocation, dividends, ETF/holding overlap), and a React dashboard
 > with all 7 tabs. There is **no background scheduler** — data refreshes on
 > `POST /api/refresh` (the UI's ↻ button, and once per session on load).
-> `/api/macro`, `/api/calendar`, `/api/sentiment` are stubbed (their UI shows
-> "not wired" placeholders).
+> `/api/macro`, `/api/calendar`, `/api/sentiment` are stubbed; the Calendar tab
+> shows a "not wired" placeholder for economic events and Fear &amp; Greed is
+> blank on Overview.
 
 ## Tech stack
 
@@ -84,7 +85,7 @@ hand-rolled inline SVG (no chart library). Data fetching is a ~90-line
 | **Watchlist** | every watched item in one sortable/filterable table · quick-add bar · group view · right-click to remove · 💼 for holdings · colour-coded ETF premium/discount |
 | **Taiwan** | TAIEX + 外資 flow · sector heatmap (watched TW stocks by turnover) · watched TW list |
 | **ETF Center** | TW ETF grid (NAV / 折溢價 / yield / ex-div) · US ETF grid · pick 2–3 to compare · bond-ETF premium alerts |
-| **Macro** | FX quoted TWD-per-unit (USD/TWD highlighted) · commodities · crypto · bond-yield / CB-rate placeholders |
+| **Macro** | FX quoted TWD-per-unit (USD/TWD highlighted) · commodities |
 | **Portfolio** | totals · holdings table with expandable lots (**＋ add / edit / delete lots**, ＋ log dividends) · allocation donuts (type/region/currency/tag) · rebalancing vs target · dividend calendar · overlap warnings |
 | **Calendar** | upcoming ex-dividend dates · TWSE 2026 holidays · (economic events pending) |
 | **Settings** | create/delete groups · rename/remove tags · set target allocation for rebalancing |
