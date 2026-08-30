@@ -6,9 +6,11 @@ import { AlertsBell } from './components/AlertsBell';
 import { invalidate } from './lib/useApi';
 import { api } from './lib/api';
 import { ymd } from './lib/format';
+import { isTwMarketOpen } from './lib/market';
 
 const AUTO_REFRESH_KEY = 'inv:lastAutoRefresh';
 const AUTO_REFRESH_MIN_GAP = 5 * 60_000; // don't auto-refresh more than once per 5 min
+const QUOTE_POLL_MS = 60_000; // during TW market hours, pull fresh prices this often
 
 const TABS = [
   { to: '/', label: 'Overview', end: true },
@@ -71,6 +73,26 @@ export default function App() {
     }
     if (Date.now() - last > AUTO_REFRESH_MIN_GAP) void refreshAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // During Taiwan market hours, poll a cheap quotes-only refresh so prices move
+  // on their own. The useApi pollers pick up the new rows on their next cycle;
+  // we also invalidate so the change shows immediately.
+  useEffect(() => {
+    const tick = async () => {
+      if (document.hidden || !isTwMarketOpen()) return;
+      try {
+        await api.post('/refresh/quotes', {});
+        invalidate('/watchlist');
+        invalidate('/markets');
+        invalidate('/portfolio');
+        setUpdatedAt(Date.now());
+      } catch {
+        /* transient upstream failure — try again next tick */
+      }
+    };
+    const timer = setInterval(tick, QUOTE_POLL_MS);
+    return () => clearInterval(timer);
   }, []);
 
   return (
