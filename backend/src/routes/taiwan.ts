@@ -1,10 +1,25 @@
 import { Router } from 'express';
 import { historyFor, latestFor } from '../repos/institutional.repo.js';
+import { recentFlow } from '../repos/marketFlow.repo.js';
 import { getQuote } from '../repos/quotes.repo.js';
 import { findByTicker } from '../repos/watchlist.repo.js';
-import { refreshTwInstitutional } from '../services/marketData.js';
+import { refreshTwInstitutional, refreshMarketFlow } from '../services/marketData.js';
 
 export const taiwanRouter = Router();
+
+// GET /api/taiwan/market-flow?days=5  — market-wide 三大法人 net (TWD)
+taiwanRouter.get('/market-flow', (req, res) => {
+  const days = Math.min(Math.max(Number(req.query.days) || 5, 1), 30);
+  res.json({ days: recentFlow(days).reverse() });
+});
+
+taiwanRouter.post('/market-flow/refresh', async (_req, res, next) => {
+  try {
+    res.json({ result: await refreshMarketFlow() });
+  } catch (err) {
+    next(err);
+  }
+});
 
 // GET /api/taiwan/institutional/:ticker?days=20
 //   Foreign / investment-trust / dealer net flows for a watched Taiwan ticker.

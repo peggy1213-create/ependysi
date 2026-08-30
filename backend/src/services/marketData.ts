@@ -7,6 +7,7 @@ import type { Market, InstrumentType } from '../config.js';
 import { listItems } from '../repos/watchlist.repo.js';
 import { upsertQuote } from '../repos/quotes.repo.js';
 import { upsertInstitutional } from '../repos/institutional.repo.js';
+import { recentFlow, upsertFlow } from '../repos/marketFlow.repo.js';
 import { lastTradingDayIso } from '../lib/roc.js';
 import { toYahooSymbol } from '../lib/ticker.js';
 import * as yahoo from './yahoo.js';
@@ -174,6 +175,30 @@ export async function refreshTwInstitutional(): Promise<RefreshResult> {
   }
   const n = rows.length > 0 ? upsertInstitutional(rows) : 0;
   return { updated: n, failed: 0, detail: `day ${iso}` };
+}
+
+/** Market-wide 三大法人 net flows for the last ~7 trading days (BFI82U). */
+export async function refreshMarketFlow(): Promise<RefreshResult> {
+  const have = new Set(recentFlow(15).map((r) => r.date));
+  let updated = 0;
+  let failed = 0;
+  const d = new Date();
+  for (let scanned = 0; scanned < 14; scanned++) {
+    if (updated >= 7 || have.size >= 10) break;
+    const dow = d.getUTCDay();
+    const iso = d.toISOString().slice(0, 10);
+    d.setUTCDate(d.getUTCDate() - 1);
+    if (dow === 0 || dow === 6 || have.has(iso)) continue;
+    const flow = await twse.marketFlow(iso);
+    if (flow && flow.foreign_net != null) {
+      upsertFlow(flow);
+      have.add(iso);
+      updated++;
+    } else {
+      failed++;
+    }
+  }
+  return { updated, failed };
 }
 
 /** Always-on backdrop — indices, FX, commodities, VIX (config-driven, not the watchlist). */

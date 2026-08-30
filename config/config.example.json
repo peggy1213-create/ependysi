@@ -5,6 +5,7 @@
     "//": "cron expressions (node-cron, 5-field). Conservative — respect free API rate limits.",
     "watchlistQuotesCron": "*/10 * * * *",
     "twInstitutionalCron": "30 15 * * 1-5",
+    "twMarketFlowCron": "35 15 * * 1-5",
     "twEtfNavCron": "5 18 * * 1-5",
     "twFundamentalsCron": "12 18 * * 1-5",
     "alwaysOnCron": "*/15 * * * *",

@@ -41,4 +41,43 @@ body {
   color: var(--color-fg);
   font-family: var(--font-mono);
   -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+
+/* thin terminal scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+/* shared bits */
+.u-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-fg-muted);
+}
+.u-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+.glow {
+  text-shadow: 0 0 18px currentColor;
 }

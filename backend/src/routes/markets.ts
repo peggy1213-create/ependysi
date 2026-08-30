@@ -18,6 +18,7 @@ function sectionPayload(section: Section) {
       kind: c.type,
       price: q?.price ?? null,
       change_pct: q?.change_pct ?? null,
+      volume: q?.volume ?? null,
       currency: q?.currency ?? null,
       fetched_at: q?.fetched_at ?? null,
     };

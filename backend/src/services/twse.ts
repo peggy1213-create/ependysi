@@ -172,6 +172,37 @@ function headerIndex(fields: string[]): { foreign: number; trust: number; dealer
   };
 }
 
+// ── Market-wide 三大法人買賣金額 (BFI82U) ───────────────────────────────────
+export interface MarketFlow {
+  date: string;
+  foreign_net: number | null; // TWD
+  trust_net: number | null;
+  dealer_net: number | null;
+}
+
+export async function marketFlow(iso: string): Promise<MarketFlow | null> {
+  const url = `${RWD}/fund/BFI82U?type=day&dayDate=${isoToTwseDate(iso)}&response=json`;
+  let data: TwseTable;
+  try {
+    data = await fetchJson<TwseTable>(url);
+  } catch {
+    return null;
+  }
+  if (data.stat !== 'OK' || !data.data) return null;
+  const pick = (needle: string): number | null => {
+    const row = data.data!.find((r) => String(r[0]).includes(needle));
+    return row ? parseIntLoose(row[3]) : null;
+  };
+  const dealerSelf = pick('自營商(自行買賣)') ?? 0;
+  const dealerHedge = pick('自營商(避險)') ?? 0;
+  return {
+    date: iso,
+    foreign_net: pick('外資及陸資(不含外資自營商)'),
+    trust_net: pick('投信'),
+    dealer_net: dealerSelf + dealerHedge,
+  };
+}
+
 // ── Per-stock ratios (P/E, yield, P/B) — BWIBBU_ALL ─────────────────────────
 export interface StockRatios {
   peRatio: number | null;

@@ -10,6 +10,7 @@ import {
   refreshEtfDetails,
   refreshTwInstitutional,
   refreshTwFundamentals,
+  refreshMarketFlow,
   refreshAlwaysOn,
 } from '../services/marketData.js';
 import { refreshTwSecurities } from '../services/twSecurities.js';
@@ -42,6 +43,12 @@ const jobs: Job[] = [
     run: refreshTwInstitutional,
   },
   {
+    name: 'tw-market-flow',
+    cron: appConfig.refresh.twMarketFlowCron ?? '35 15 * * 1-5',
+    run: refreshMarketFlow,
+    runOnBoot: true,
+  },
+  {
     name: 'tw-etf-nav',
     cron: appConfig.refresh.twEtfNavCron ?? '5 18 * * 1-5',
     run: refreshEtfDetails,
@@ -60,6 +67,7 @@ const jobs: Job[] = [
     name: 'instrument-meta',
     cron: appConfig.refresh.instrumentMetaCron ?? '15 7 * * *',
     run: refreshInstrumentMeta,
+    runOnBoot: true,
   },
   {
     name: 'etf-holdings',

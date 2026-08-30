@@ -55,6 +55,8 @@ export interface Position {
   unrealized_pnl_orig: number | null;
   unrealized_pnl_twd: number | null;
   unrealized_pnl_pct: number | null;
+  change_pct: number | null; // today's price move
+  day_pnl_twd: number | null; // today's P&L contribution
   weight_pct: number | null;
   target_price: number | null;
   stop_loss: number | null;
@@ -77,6 +79,7 @@ export interface PortfolioSnapshot {
     cost_twd: number;
     unrealized_pnl_twd: number;
     unrealized_pnl_pct: number | null;
+    day_pnl_twd: number;
     est_annual_income_twd: number;
     positions: number;
     lots: number;
@@ -155,6 +158,10 @@ export function computePortfolio(): PortfolioSnapshot {
     const estIncomeTwd =
       dividendYield != null && mvTwd != null ? (mvTwd * dividendYield) / 100 : null;
 
+    const changePct = q?.change_pct ?? null;
+    const dayPnlTwd =
+      changePct != null && mvTwd != null ? mvTwd - mvTwd / (1 + changePct / 100) : null;
+
     positions.push({
       ticker,
       name: q?.name ?? w?.name ?? null,
@@ -177,6 +184,8 @@ export function computePortfolio(): PortfolioSnapshot {
       unrealized_pnl_twd: mvTwd != null && costTwd != null ? r2(mvTwd - costTwd) : null,
       unrealized_pnl_pct:
         mvTwd != null && costTwd ? r2(((mvTwd - costTwd) / costTwd) * 100) : null,
+      change_pct: changePct,
+      day_pnl_twd: r2(dayPnlTwd),
       weight_pct: null, // filled after total is known
       target_price: target,
       stop_loss: stop,
@@ -196,6 +205,7 @@ export function computePortfolio(): PortfolioSnapshot {
   const totalMv = sum(positions.map((p) => p.market_value_twd ?? 0));
   const totalCost = sum(positions.map((p) => p.cost_value_twd ?? 0));
   const totalIncome = sum(positions.map((p) => p.est_annual_income_twd ?? 0));
+  const totalDayPnl = sum(positions.map((p) => p.day_pnl_twd ?? 0));
 
   for (const p of positions) {
     p.weight_pct =
@@ -212,6 +222,7 @@ export function computePortfolio(): PortfolioSnapshot {
       cost_twd: r2(totalCost)!,
       unrealized_pnl_twd: r2(totalMv - totalCost)!,
       unrealized_pnl_pct: totalCost > 0 ? r2(((totalMv - totalCost) / totalCost) * 100) : null,
+      day_pnl_twd: r2(totalDayPnl)!,
       est_annual_income_twd: r2(totalIncome)!,
       positions: positions.length,
       lots: lots.length,

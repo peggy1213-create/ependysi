@@ -58,6 +58,15 @@ CREATE TABLE IF NOT EXISTS tw_institutional (
   PRIMARY KEY (ticker, date)
 );
 
+-- ── Market-wide institutional flows (三大法人買賣金額，全市場) ──────────────
+CREATE TABLE IF NOT EXISTS tw_market_flow (
+  date        TEXT PRIMARY KEY,   -- ISO trading day
+  foreign_net INTEGER,            -- TWD, 外資及陸資(不含外資自營商) 買賣差額
+  trust_net   INTEGER,            -- TWD, 投信
+  dealer_net  INTEGER,            -- TWD, 自營商 (self + hedge)
+  fetched_at  TEXT NOT NULL
+);
+
 -- ── Taiwan securities master (for search + auto-detect) ──────────────────────
 CREATE TABLE IF NOT EXISTS tw_securities (
   ticker      TEXT PRIMARY KEY,

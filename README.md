@@ -4,12 +4,12 @@ A self-hosted, single-user web dashboard for tracking global markets, the Taiwan
 stock market, macro indicators, commodities & crypto, a personal portfolio with
 P&L, an economic calendar, and market sentiment. Base currency: **TWD**.
 
-> Status: **backend — watchlist, data layer, and portfolio tracker working.**
-> SQLite-backed watchlist (items / groups / search / auto-detect), live data
-> fetching for Taiwan (TWSE + TPEx) and global markets (Yahoo), normalized quote
-> cache, scheduler, and a full portfolio tracker (lots, P&L in TWD, allocation
-> views, dividend tracking, ETF/holding overlap). Frontend is still a placeholder
-> shell. `/api/macro`, `/api/calendar`, `/api/sentiment` are stubbed.
+> Status: **backend + 7-tab dashboard UI working.** SQLite-backed watchlist
+> (items / groups / search / auto-detect), live data for Taiwan (TWSE + TPEx) and
+> global markets (Yahoo), normalized quote cache, scheduler, full portfolio
+> tracker (lots, P&L in TWD, allocation, dividends, ETF/holding overlap), and a
+> React dashboard with all 7 tabs. `/api/macro`, `/api/calendar`, `/api/sentiment`
+> are stubbed (their UI shows "not wired" placeholders).
 
 ## Tech stack
 
@@ -64,10 +64,33 @@ Investment/
     ├── vite.config.ts      # dev-server proxies /api -> backend
     └── src/
         ├── index.css       # Tailwind + @theme design tokens (see Theme below)
-        ├── App.tsx         # placeholder shell
-        ├── lib/api.ts      # fetch wrapper
-        ├── components/  pages/  hooks/   # empty, ready to fill
+        ├── App.tsx         # shell: tab nav, refresh, FAB + add modal
+        ├── main.tsx        # react-router route tree (7 tabs + settings)
+        ├── lib/            # api wrapper, useApi hook (cache + polling), typed hooks, formatters
+        ├── components/     # ui.tsx (Card/Stat/Badge/…), charts.tsx (SVG gauge/donut/heatmap/bars), AddModal
+        └── pages/          # Overview, Watchlist, Taiwan, EtfCenter, Macro, Portfolio, Calendar, Settings
 ```
+
+## Dashboard (frontend)
+
+React 19 + react-router + Tailwind v4, "Dark Terminal" theme. Charts are
+hand-rolled inline SVG (no chart library). Data fetching is a ~90-line
+`useApi` hook with a shared module cache and polling.
+
+| Tab | What it shows |
+| --- | --- |
+| **Overview** | portfolio strip · global indices · VIX gauge · TAIEX headline · market-wide 外資 5-day flow |
+| **Watchlist** | every watched item in one sortable/filterable table · quick-add bar · group view · right-click to remove · 💼 for holdings · colour-coded ETF premium/discount |
+| **Taiwan** | TAIEX + 外資 flow · sector heatmap (watched TW stocks by turnover) · watched TW list |
+| **ETF Center** | TW ETF grid (NAV / 折溢價 / yield / ex-div) · US ETF grid · pick 2–3 to compare · bond-ETF premium alerts |
+| **Macro** | FX (USD/TWD highlighted) · commodities · crypto · bond-yield / CB-rate placeholders |
+| **Portfolio** | totals · holdings table with expandable lots · allocation donuts (type/region/currency/tag) · rebalancing vs target · dividend calendar · overlap warnings |
+| **Calendar** | upcoming ex-dividend dates · TWSE 2026 holidays · (economic events pending) |
+| **Settings** | create/delete groups · rename/remove tags · set target allocation for rebalancing |
+
+The **+ button** (bottom-right, any tab) opens a search modal: type a ticker
+number or name → results → one click adds to the watchlist, with optional tags
+and groups. `npm run dev` serves it at http://localhost:5173.
 
 ## Theme — Dark Terminal (Warm Edition)
 
@@ -185,6 +208,7 @@ Yahoo so you can find something by number or name before adding it.
 | `POST /api/watchlist/groups`        | create `{ group_name, description? }`           |
 | `GET /api/markets`                  | always-on indices / FX / commodities / VIX     |
 | `GET /api/taiwan/institutional/:t`  | 外資/投信/自營商 net-flow history for a ticker    |
+| `GET /api/taiwan/market-flow?days=` | market-wide 三大法人 net (TWD), last N trading days |
 | `POST /api/refresh`                 | force a watchlist quote refresh now            |
 
 Every watchlist item is returned in one **normalized shape**: `ticker, name,
@@ -254,6 +278,7 @@ manual entries and auto-detected estimates (flagged for you to correct).
 | `watchlist-quotes`   | `*/10 * * * *`      | price / change% / volume for watched   |
 | `always-on`          | `*/15 * * * *`      | indices / FX / commodities / VIX        |
 | `tw-institutional`   | `30 15 * * 1-5`     | 外資/投信/自營商 net flows (watched TW)  |
+| `tw-market-flow`     | `35 15 * * 1-5`     | market-wide 三大法人 net (BFI82U)        |
 | `tw-etf-nav`         | `5 18 * * 1-5`      | ETF NAV + premium/discount + yield/expense |
 | `tw-fundamentals`    | `12 18 * * 1-5`     | TW stock yield / P/E / P/B               |
 | `tw-securities-list` | `0 7 * * *`         | refresh the TW securities master        |
@@ -266,6 +291,8 @@ manual entries and auto-detected estimates (flagged for you to correct).
 
 1. TW ETF dividend yields (`BWIBBU_ALL` is stocks only) — use a TWSE/issuer ETF
    dividend feed so 0050 / 00878 estimated income is populated.
-2. Wire `/api/macro` (FRED) — FX detail, bond yields, central-bank rates.
-3. `/api/calendar` (economic events) and `/api/sentiment` (Fear & Greed).
-4. Build the frontend: layout, routing, dashboard widgets, watchlist + portfolio UI.
+2. Wire `/api/macro` (FRED) — bond yields, central-bank rates with hold/cut/hike.
+3. `/api/calendar` (economic events, FOMC/CBC dates, US earnings) and
+   `/api/sentiment` (Fear & Greed).
+4. Frontend polish: drag-to-reorder watchlist, mobile swipe-to-remove, per-lot
+   edit forms, alert thresholds.

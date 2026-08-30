@@ -8,6 +8,8 @@ import type { NormalizedQuote } from '../repos/quotes.repo.js';
 import { getQuotes } from '../repos/quotes.repo.js';
 import { latestFor } from '../repos/institutional.repo.js';
 import { heldTickers } from '../repos/holdings.repo.js';
+import { getMetaMany } from '../repos/meta.repo.js';
+import { regionOf, sectorLabel } from '../lib/classify.js';
 
 export interface NormalizedItem {
   id: number;
@@ -32,6 +34,10 @@ export interface NormalizedItem {
   foreign_net: number | null;
   foreign_net_date: string | null;
 
+  // Classification
+  region: 'Taiwan' | 'US' | 'Other';
+  sector: string | null;
+
   // User metadata
   tags: string[];
   group_names: string[];
@@ -46,18 +52,27 @@ const isEtf = (t: InstrumentType): boolean => t === 'tw_etf' || t === 'us_etf';
 
 export function normalizeWatchlist(items: WatchlistItem[]): NormalizedItem[] {
   const quotes = getQuotes(items.map((i) => i.ticker));
+  const meta = getMetaMany(items.map((i) => i.ticker));
   const held = heldTickers();
-  return items.map((item) => merge(item, quotes.get(item.ticker), held.has(item.ticker)));
+  return items.map((item) =>
+    merge(item, quotes.get(item.ticker), held.has(item.ticker), meta.get(item.ticker)),
+  );
 }
 
 function merge(
   item: WatchlistItem,
   q: NormalizedQuote | undefined,
   inPortfolio: boolean,
+  meta?: { sector: string | null; industry: string | null },
 ): NormalizedItem {
   const inst =
     item.market === 'TWSE' || item.market === 'TPEx' ? latestFor(item.ticker) : undefined;
   const etf = isEtf(item.type);
+  const region = regionOf(item.market);
+  const sec =
+    item.type === 'stock'
+      ? sectorLabel(meta?.sector ?? null, meta?.industry ?? null, region).label
+      : null;
 
   return {
     id: item.id,
@@ -72,13 +87,16 @@ function merge(
 
     nav: etf ? (q?.nav ?? null) : null,
     premium_discount_pct: etf ? (q?.premium_discount_pct ?? null) : null,
-    dividend_yield: etf ? (q?.dividend_yield ?? null) : null,
+    dividend_yield: q?.dividend_yield ?? null,
     expense_ratio: etf ? (q?.expense_ratio ?? null) : null,
     aum: etf ? (q?.aum ?? null) : null,
-    next_ex_dividend_date: etf ? (q?.next_ex_dividend_date ?? null) : null,
+    next_ex_dividend_date: q?.next_ex_dividend_date ?? null,
 
     foreign_net: inst?.foreign_net ?? null,
     foreign_net_date: inst?.date ?? null,
+
+    region,
+    sector: sec,
 
     tags: item.tags,
     group_names: item.group_names,
