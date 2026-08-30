@@ -78,9 +78,19 @@ export const env = {
   anthropicModel: process.env.ANTHROPIC_MODEL ?? 'claude-opus-5',
 };
 
+// Writable data dir. Defaults to backend/data (dev); the desktop app points
+// INVESTMENT_DATA_DIR at %APPDATA%/… so the SQLite file survives app updates.
+const dataDir = process.env.INVESTMENT_DATA_DIR
+  ? resolve(process.env.INVESTMENT_DATA_DIR)
+  : resolve(__dirname, '..', 'data');
+// Bundled read-only seed files — always ship next to the compiled backend.
+const seedDir = resolve(__dirname, '..', 'data');
+
 export const paths = {
   repoRoot,
-  dataDir: resolve(__dirname, '..', 'data'),
-  dbFile: resolve(__dirname, '..', 'data', 'investment.sqlite'),
-  twSecuritiesSeed: resolve(__dirname, '..', 'data', 'tw-securities.seed.json'),
+  dataDir,
+  seedDir,
+  dbFile: resolve(dataDir, 'investment.sqlite'),
+  twSecuritiesSeed: resolve(seedDir, 'tw-securities.seed.json'),
+  etfHoldingsSeed: resolve(seedDir, 'etf-holdings.seed.json'),
 };

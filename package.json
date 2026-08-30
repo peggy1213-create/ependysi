@@ -1,8 +1,11 @@
 {
   "name": "investment-dashboard",
+  "productName": "Investment Dashboard",
   "version": "0.1.0",
   "private": true,
   "description": "Self-hosted personal investment dashboard (global indices, Taiwan market, macro, portfolio).",
+  "author": "Peich",
+  "main": "electron/main.cjs",
   "workspaces": [
     "frontend",
     "backend"
@@ -12,12 +15,53 @@
     "build": "npm run build -w backend && npm run build -w frontend",
     "start": "npm run start -w backend",
     "typecheck": "npm run typecheck -w backend && npm run typecheck -w frontend",
+    "app": "npm run build && electron .",
+    "dist": "npm run build && electron-builder --win",
     "clean": "npm exec -ws -- rimraf dist node_modules && rimraf node_modules"
   },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.68.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "fast-xml-parser": "^5.11.1",
+    "zod": "^3.24.1"
+  },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "electron": "^38.2.2",
+    "electron-builder": "^25.1.8"
   },
   "engines": {
     "node": ">=20"
+  },
+  "build": {
+    "appId": "com.peich.investment-dashboard",
+    "productName": "Investment Dashboard",
+    "asar": false,
+    "directories": {
+      "output": "release",
+      "buildResources": "electron/resources"
+    },
+    "files": [
+      "electron/**/*",
+      "backend/dist/**/*",
+      "backend/data/*.seed.json",
+      "backend/package.json",
+      "frontend/dist/**/*",
+      "config/config.example.json",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "electron/resources/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
   }
 }

@@ -9,6 +9,9 @@ frontend/dist/
 backend/dist/
 *.tsbuildinfo
 
+# electron-builder output
+release/
+
 # env & secrets
 .env
 .env.local

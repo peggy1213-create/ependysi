@@ -4,7 +4,6 @@
  * a bundled seed fills gaps for common Taiwan ETFs where Yahoo is thin.
  */
 import { readFileSync, existsSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { paths } from '../config.js';
 import { listItems } from '../repos/watchlist.repo.js';
 import { heldTickers } from '../repos/holdings.repo.js';
@@ -13,7 +12,7 @@ import { toYahooSymbol, normalizeComponent } from '../lib/ticker.js';
 import * as yahoo from './yahoo.js';
 
 const STALE_MS = 14 * 24 * 60 * 60 * 1000;
-const SEED_PATH = resolve(paths.dataDir, 'etf-holdings.seed.json');
+const SEED_PATH = paths.etfHoldingsSeed;
 
 interface SeedFile {
   [etfTicker: string]: {
