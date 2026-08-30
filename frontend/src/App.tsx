@@ -1,9 +1,12 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import clsx from 'clsx';
 import { AddModal } from './components/AddModal';
 import { invalidate } from './lib/useApi';
 import { api } from './lib/api';
+
+const AUTO_REFRESH_KEY = 'inv:lastAutoRefresh';
+const AUTO_REFRESH_MIN_GAP = 5 * 60_000; // don't auto-refresh more than once per 5 min
 
 const TABS = [
   { to: '/', label: 'Overview', end: true },
@@ -21,18 +24,42 @@ export const useAdd = () => useContext(AddCtx);
 export default function App() {
   const [addOpen, setAddOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const autoRan = useRef(false);
 
   const refreshAll = async () => {
     setRefreshing(true);
     try {
-      await Promise.allSettled([api.post('/refresh', {}), api.post('/portfolio/refresh', {})]);
+      await api.post('/refresh', {});
+    } catch {
+      /* endpoint still returns partial results on job failures */
+    } finally {
       invalidate('/watchlist');
       invalidate('/markets');
       invalidate('/portfolio');
-    } finally {
+      invalidate('/taiwan');
+      try {
+        localStorage.setItem(AUTO_REFRESH_KEY, String(Date.now()));
+      } catch {
+        /* private mode */
+      }
       setRefreshing(false);
     }
   };
+
+  // No backend scheduler: pull fresh data once when the dashboard is opened,
+  // throttled so reloads / multiple tabs don't hammer the upstream APIs.
+  useEffect(() => {
+    if (autoRan.current) return;
+    autoRan.current = true;
+    let last = 0;
+    try {
+      last = Number(localStorage.getItem(AUTO_REFRESH_KEY)) || 0;
+    } catch {
+      /* ignore */
+    }
+    if (Date.now() - last > AUTO_REFRESH_MIN_GAP) void refreshAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <AddCtx.Provider value={() => setAddOpen(true)}>

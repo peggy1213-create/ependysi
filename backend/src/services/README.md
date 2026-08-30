@@ -1,14 +1,15 @@
 # services/
 
-Data-source adapters and refresh orchestration. Route handlers and scheduled
-jobs call these; nothing here writes HTTP responses.
+Data-source adapters and refresh orchestration. Route handlers call these;
+nothing here writes HTTP responses.
 
 | file               | source                          | covers                                                        |
 | ------------------ | ------------------------------- | ------------------------------------------------------------- |
 | `yahoo.ts`         | Yahoo Finance (unofficial)      | US / index / FX / commodity / crypto quotes; ticker search; ETF fundamentals (crumb-gated) |
 | `twse.ts`          | TWSE open data (mis / rwd / openapi) | TW real-time quotes, code search, ETF NAV + premium/discount, T86 三大法人 flows, listed master |
 | `tpex.ts`          | TPEx open data (openapi)        | TPEx security master, 3-institution daily flows              |
-| `twSecurities.ts`  | TWSE + TPEx                     | rebuilds the `tw_securities` master (daily cron / `npm run refresh:tw-list`) |
+| `twSecurities.ts`  | TWSE + TPEx                     | rebuilds the `tw_securities` master (`npm run refresh:tw-list`, or `/api/refresh?securities=1`) |
+| `refreshAll.ts`    | —                               | `POST /api/refresh` — runs every fetch job once (no background scheduler) |
 | `resolve.ts`       | —                               | raw ticker → classified instrument; `ensureWatched()` auto-adds to the watchlist |
 | `search.ts`        | local master + TWSE + Yahoo     | `/api/watchlist/search`                                       |
 | `normalize.ts`     | —                               | watchlist rows + cached quotes → the one normalized item shape |

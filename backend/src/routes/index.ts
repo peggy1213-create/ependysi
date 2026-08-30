@@ -6,7 +6,7 @@ import { portfolioRouter } from './portfolio.js';
 import { macroRouter } from './macro.js';
 import { calendarRouter } from './calendar.js';
 import { sentimentRouter } from './sentiment.js';
-import { refreshWatchlistQuotes, refreshEtfDetails } from '../services/marketData.js';
+import { refreshAll } from '../services/refreshAll.js';
 
 export const apiRouter = Router();
 
@@ -20,12 +20,11 @@ apiRouter.use('/markets', marketsRouter); // always-on: indices, FX, commodities
 apiRouter.use('/taiwan', taiwanRouter); // TW institutional flows, per-ticker quote
 apiRouter.use('/portfolio', portfolioRouter); // holdings + P&L
 
-// Force a watchlist data refresh now (prices, then ETF details)
-apiRouter.post('/refresh', async (_req, res, next) => {
+// Refresh ALL data now (there is no background scheduler). ?securities=1 also
+// rebuilds the TW securities master (slower). The UI's ↻ button hits this.
+apiRouter.post('/refresh', async (req, res, next) => {
   try {
-    const quotes = await refreshWatchlistQuotes();
-    refreshEtfDetails().catch(() => {});
-    res.json({ quotes });
+    res.json(await refreshAll({ securities: req.query.securities != null }));
   } catch (err) {
     next(err);
   }

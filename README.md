@@ -6,10 +6,12 @@ P&L, an economic calendar, and market sentiment. Base currency: **TWD**.
 
 > Status: **backend + 7-tab dashboard UI working.** SQLite-backed watchlist
 > (items / groups / search / auto-detect), live data for Taiwan (TWSE + TPEx) and
-> global markets (Yahoo), normalized quote cache, scheduler, full portfolio
-> tracker (lots, P&L in TWD, allocation, dividends, ETF/holding overlap), and a
-> React dashboard with all 7 tabs. `/api/macro`, `/api/calendar`, `/api/sentiment`
-> are stubbed (their UI shows "not wired" placeholders).
+> global markets (Yahoo), normalized quote cache, full portfolio tracker (lots,
+> P&L in TWD, allocation, dividends, ETF/holding overlap), and a React dashboard
+> with all 7 tabs. There is **no background scheduler** — data refreshes on
+> `POST /api/refresh` (the UI's ↻ button, and once per session on load).
+> `/api/macro`, `/api/calendar`, `/api/sentiment` are stubbed (their UI shows
+> "not wired" placeholders).
 
 ## Tech stack
 
@@ -18,7 +20,7 @@ P&L, an economic calendar, and market sentiment. Base currency: **TWD**.
 | Frontend  | React 19 + Vite 6 + TypeScript + Tailwind CSS v4   |
 | Backend   | Node + Express + TypeScript (ESM), `tsx` in dev    |
 | Storage   | SQLite via `node:sqlite` (`backend/data/investment.sqlite`) |
-| Scheduler | `node-cron` (`backend/src/jobs/scheduler.ts`)      |
+| Refresh   | manual — `POST /api/refresh` runs every fetch job  |
 | Monorepo  | npm workspaces + `concurrently`                    |
 
 ### Why Node/Express for the backend
@@ -42,18 +44,17 @@ and Yahoo Finance are keyless. `FRED_API_KEY` is only for the stubbed
 Investment/
 ├── package.json            # workspaces + combined dev/build scripts
 ├── config/
-│   └── config.example.json # refresh cron + always-on market backdrop (copy to config.json)
+│   └── config.example.json # always-on market backdrop + FRED series (copy to config.json)
 ├── backend/
 │   ├── .env.example        # server config + optional FRED key (copy to .env)
 │   ├── src/
 │   │   ├── index.ts        # Express app entry
-│   │   ├── config.ts       # env + config.json (schedule, always-on lists, FRED series)
+│   │   ├── config.ts       # env + config.json (always-on lists, FRED series)
 │   │   ├── db/             # node:sqlite connection, schema.sql, migrations, seed
 │   │   ├── repos/          # all SQL — watchlist, groups, quotes, institutional, holdings (lots), dividends, meta, etf_holdings, securities
-│   │   ├── services/       # data adapters + valuation / allocation / overlap / dividend engines (see services/README.md)
+│   │   ├── services/       # data adapters, valuation/allocation/overlap/dividend engines, refreshAll (see services/README.md)
 │   │   ├── lib/            # ticker auto-detect, region/sector classify, FX, http, ROC-date helpers
-│   │   ├── routes/         # /api route modules
-│   │   └── jobs/scheduler.ts  # cron jobs (quotes, institutional, ETF NAV/holdings, TW fundamentals, meta, always-on)
+│   │   └── routes/         # /api route modules
 │   └── data/
 │       ├── tw-securities.seed.json   # bundled TWSE/TPEx listing (committed)
 │       ├── etf-holdings.seed.json    # fallback ETF constituents (committed)
@@ -209,7 +210,7 @@ Yahoo so you can find something by number or name before adding it.
 | `GET /api/markets`                  | always-on indices / FX / commodities / VIX     |
 | `GET /api/taiwan/institutional/:t`  | 外資/投信/自營商 net-flow history for a ticker    |
 | `GET /api/taiwan/market-flow?days=` | market-wide 三大法人 net (TWD), last N trading days |
-| `POST /api/refresh`                 | force a watchlist quote refresh now            |
+| `POST /api/refresh`                 | run every fetch job now (`?securities=1` also rebuilds the TW master) |
 
 Every watchlist item is returned in one **normalized shape**: `ticker, name,
 price, change_pct, volume, market, type, currency`, ETF fields (`nav,
@@ -269,23 +270,23 @@ manual entries and auto-detected estimates (flagged for you to correct).
 | TW stock yield / P/E / P/B              | TWSE `BWIBBU_ALL` + TPEx `peratio_analysis`        |
 | Sector / industry                      | Yahoo `assetProfile` (English; mapped to 中文)      |
 
-## Scheduled fetching
+## Refreshing data
 
-`backend/src/jobs/scheduler.ts` — cron schedules from `config.json` → `refresh`:
+There is **no background scheduler**. `POST /api/refresh`
+([`services/refreshAll.ts`](backend/src/services/refreshAll.ts)) runs every fetch
+job once — watchlist quotes, always-on backdrop, ETF NAV/details, TW
+fundamentals, sector/industry, ETF constituents, market-wide flow, and
+institutional flows — in ~1–2 s. `?securities=1` also rebuilds the TW securities
+master.
 
-| Job                  | Default cron        | What                                    |
-| -------------------- | ------------------- | -------------------------------------- |
-| `watchlist-quotes`   | `*/10 * * * *`      | price / change% / volume for watched   |
-| `always-on`          | `*/15 * * * *`      | indices / FX / commodities / VIX        |
-| `tw-institutional`   | `30 15 * * 1-5`     | 外資/投信/自營商 net flows (watched TW)  |
-| `tw-market-flow`     | `35 15 * * 1-5`     | market-wide 三大法人 net (BFI82U)        |
-| `tw-etf-nav`         | `5 18 * * 1-5`      | ETF NAV + premium/discount + yield/expense |
-| `tw-fundamentals`    | `12 18 * * 1-5`     | TW stock yield / P/E / P/B               |
-| `tw-securities-list` | `0 7 * * *`         | refresh the TW securities master        |
-| `instrument-meta`    | `15 7 * * *`        | sector / industry / region              |
-| `etf-holdings`       | `30 7 * * 1`        | ETF constituents (overlap detection)    |
+It's triggered by:
+- the dashboard's **↻ refresh** button (top-right), and
+- automatically **once when the dashboard is opened** (throttled to at most once
+  per 5 min via `localStorage`, so reloads and extra tabs don't hammer the APIs).
 
-`watchlist-quotes` and `always-on` also run ~2 s after boot to warm the cache.
+Adding a ticker also warms its quote in the background. For a cron-style refresh,
+point an external scheduler (system cron, Task Scheduler) at
+`curl -X POST http://localhost:4000/api/refresh`.
 
 ## Next steps
 

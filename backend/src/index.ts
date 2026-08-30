@@ -3,7 +3,6 @@ import cors from 'cors';
 import { env } from './config.js';
 import './db/index.js'; // open connection + apply schema + seed before routes load
 import { apiRouter } from './routes/index.js';
-import { startScheduler } from './jobs/scheduler.js';
 
 const app = express();
 
@@ -23,5 +22,5 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
 
 app.listen(env.port, () => {
   console.log(`[server] API listening on http://localhost:${env.port}/api (${env.nodeEnv})`);
-  startScheduler();
+  console.log('[server] no background scheduler — data refreshes on POST /api/refresh (the UI ↻ button)');
 });

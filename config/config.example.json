@@ -1,19 +1,6 @@
 {
   "baseCurrency": "TWD",
   "timezone": "Asia/Taipei",
-  "refresh": {
-    "//": "cron expressions (node-cron, 5-field). Conservative — respect free API rate limits.",
-    "watchlistQuotesCron": "*/10 * * * *",
-    "twInstitutionalCron": "30 15 * * 1-5",
-    "twMarketFlowCron": "35 15 * * 1-5",
-    "twEtfNavCron": "5 18 * * 1-5",
-    "twFundamentalsCron": "12 18 * * 1-5",
-    "alwaysOnCron": "*/15 * * * *",
-    "twSecuritiesListCron": "0 7 * * *",
-    "instrumentMetaCron": "15 7 * * *",
-    "etfHoldingsCron": "30 7 * * 1",
-    "macroCron": "0 */6 * * *"
-  },
   "macroSeries": {
     "//": "FRED series IDs (requires FRED_API_KEY).",
     "fred": ["DGS10", "DGS2", "FEDFUNDS", "T10Y2Y"]

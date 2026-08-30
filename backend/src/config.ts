@@ -45,7 +45,6 @@ export interface AlwaysOnItem {
 export interface AppConfig {
   baseCurrency: string;
   timezone: string;
-  refresh: Record<string, string>;
   macroSeries: { fred: string[] };
   /**
    * Market context shown regardless of the watchlist. Fixed by design — this is
