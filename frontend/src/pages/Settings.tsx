@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { api } from '../lib/api';
-import { invalidate, useApi } from '../lib/useApi';
+import { invalidate } from '../lib/useApi';
 import { useGroups, useWatchlist } from '../lib/hooks';
 import { Async, Card } from '../components/ui';
 
@@ -9,7 +9,6 @@ export default function Settings() {
     <div className="grid gap-4 lg:grid-cols-2">
       <Groups />
       <Tags />
-      <TargetAllocation />
     </div>
   );
 }
@@ -166,81 +165,3 @@ function Tags() {
   );
 }
 
-const BASES = ['by_type', 'by_region', 'by_currency', 'by_tag'] as const;
-
-function TargetAllocation() {
-  const settings = useApi<{ settings: Record<string, string> }>('/portfolio/settings');
-  const alloc = useApi<Record<string, { label: string }[]>>('/portfolio/allocation');
-  const [basis, setBasis] = useState<(typeof BASES)[number]>('by_type');
-  const [targets, setTargets] = useState<Record<string, number>>({});
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    const raw = settings.data?.settings.target_allocation;
-    if (!raw) return;
-    try {
-      const t = JSON.parse(raw);
-      if (t.basis) setBasis(t.basis);
-      if (t.targets) setTargets(t.targets);
-    } catch {
-      /* ignore */
-    }
-  }, [settings.data]);
-
-  const buckets = (alloc.data?.[basis] ?? []).map((b) => b.label);
-  const knownLabels = [...new Set([...buckets, ...Object.keys(targets)])];
-  const total = Object.values(targets).reduce((a, b) => a + (Number(b) || 0), 0);
-
-  const save = async () => {
-    await api.put('/portfolio/settings', {
-      target_allocation: JSON.stringify({ basis, targets }),
-    });
-    setSaved(true);
-    invalidate('/portfolio/settings');
-    setTimeout(() => setSaved(false), 1500);
-  };
-
-  return (
-    <Card title="Target allocation (for rebalancing)" className="lg:col-span-2">
-      <div className="mb-3 flex items-center gap-2 text-xs">
-        <span className="text-fg-muted">basis</span>
-        {BASES.map((b) => (
-          <button
-            key={b}
-            onClick={() => setBasis(b)}
-            className={
-              'rounded px-2 py-1 ' + (basis === b ? 'bg-accent text-bg' : 'bg-bg text-fg-secondary')
-            }
-          >
-            {b.replace('by_', '')}
-          </button>
-        ))}
-      </div>
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {knownLabels.map((label) => (
-          <label key={label} className="flex items-center justify-between gap-2 rounded bg-bg px-2 py-1.5 text-sm">
-            <span className="truncate text-fg-secondary">{label}</span>
-            <span className="flex items-center gap-1">
-              <input
-                type="number"
-                value={targets[label] ?? ''}
-                onChange={(e) =>
-                  setTargets((t) => ({ ...t, [label]: e.target.value === '' ? 0 : Number(e.target.value) }))
-                }
-                className="w-14 rounded bg-surface px-1 py-0.5 text-right tnum outline-none"
-              />
-              <span className="text-fg-muted">%</span>
-            </span>
-          </label>
-        ))}
-      </div>
-      <div className="mt-3 flex items-center gap-3 text-xs">
-        <span className={total === 100 ? 'text-bullish' : 'text-highlight'}>total {total}%</span>
-        <button onClick={save} className="rounded bg-accent px-3 py-1 text-bg">
-          save
-        </button>
-        {saved && <span className="text-bullish">✓ saved</span>}
-      </div>
-    </Card>
-  );
-}

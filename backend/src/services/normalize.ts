@@ -34,6 +34,14 @@ export interface NormalizedItem {
   foreign_net: number | null;
   foreign_net_date: string | null;
 
+  // Analyst / broker consensus target price (外資目標價) — null when uncovered
+  target_mean_price: number | null;
+  target_high_price: number | null;
+  target_low_price: number | null;
+  analyst_count: number | null;
+  target_upside_pct: number | null; // (target − price) / price, vs current price
+  target_price_at: string | null;
+
   // Classification
   region: 'Taiwan' | 'US' | 'Other';
   sector: string | null;
@@ -94,6 +102,16 @@ function merge(
 
     foreign_net: inst?.foreign_net ?? null,
     foreign_net_date: inst?.date ?? null,
+
+    target_mean_price: q?.target_mean_price ?? null,
+    target_high_price: q?.target_high_price ?? null,
+    target_low_price: q?.target_low_price ?? null,
+    analyst_count: q?.analyst_count ?? null,
+    target_upside_pct:
+      q?.target_mean_price != null && q?.price != null && q.price > 0
+        ? Math.round(((q.target_mean_price - q.price) / q.price) * 1000) / 10
+        : null,
+    target_price_at: q?.target_price_at ?? null,
 
     region,
     sector: sec,

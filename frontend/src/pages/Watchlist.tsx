@@ -7,7 +7,14 @@ import { Async, Badge, Pill, RemoveButton } from '../components/ui';
 import { compact, num, pct } from '../lib/format';
 import { dirClass } from '../lib/format';
 
-type SortKey = 'ticker' | 'change_pct' | 'volume' | 'foreign_net' | 'dividend_yield' | 'manual';
+type SortKey =
+  | 'ticker'
+  | 'change_pct'
+  | 'volume'
+  | 'foreign_net'
+  | 'dividend_yield'
+  | 'target_upside'
+  | 'manual';
 
 const MARKET_TABS = [
   { key: 'all', label: 'All' },
@@ -93,6 +100,8 @@ export default function Watchlist() {
           return i.foreign_net ?? -Infinity;
         case 'dividend_yield':
           return i.dividend_yield ?? -Infinity;
+        case 'target_upside':
+          return i.target_upside_pct ?? -Infinity;
         case 'manual':
           return i.display_order;
       }
@@ -216,6 +225,14 @@ export default function Watchlist() {
                   >
                     Yield
                   </Th>
+                  <Th
+                    onClick={() => setSortKey('target_upside')}
+                    active={sort === 'target_upside'}
+                    dir={dir}
+                    right
+                  >
+                    外資目標價
+                  </Th>
                   <th className="text-right">Prem/Disc</th>
                   <th>Tags</th>
                   <th className="text-right"> </th>
@@ -253,6 +270,15 @@ export default function Watchlist() {
       )}
     </div>
   );
+}
+
+function targetTitle(it: WatchItem): string {
+  const parts: string[] = [];
+  if (it.target_low_price != null && it.target_high_price != null)
+    parts.push(`區間 ${num(it.target_low_price)}–${num(it.target_high_price)}`);
+  if (it.analyst_count != null) parts.push(`${it.analyst_count} 位分析師`);
+  if (it.target_price_at) parts.push(`更新 ${it.target_price_at.slice(0, 10)}`);
+  return ['外資/分析師目標價 (Yahoo 綜合)', ...parts].join(' · ');
 }
 
 function Th({
@@ -297,7 +323,7 @@ function FragmentGroup({
   return (
     <>
       <tr className="bg-bg/60">
-        <td colSpan={9} className="px-3 py-1.5 text-xs font-semibold text-accent">
+        <td colSpan={10} className="px-3 py-1.5 text-xs font-semibold text-accent">
           {name} <span className="text-fg-muted">· {items.length}</span>
         </td>
       </tr>
@@ -342,6 +368,23 @@ function Row({
       </td>
       <td className="text-right tnum text-fg-secondary">
         {it.dividend_yield == null ? '—' : `${num(it.dividend_yield, 2)}%`}
+      </td>
+      <td className="text-right tnum">
+        {it.target_mean_price == null ? (
+          <span className="text-fg-muted">—</span>
+        ) : (
+          <span
+            title={targetTitle(it)}
+            className="inline-flex flex-col items-end leading-tight"
+          >
+            <span className="text-fg-secondary">{num(it.target_mean_price)}</span>
+            {it.target_upside_pct != null && (
+              <span className={clsx('text-xs', dirClass(it.target_upside_pct))}>
+                {pct(it.target_upside_pct)}
+              </span>
+            )}
+          </span>
+        )}
       </td>
       <td className="text-right tnum">
         {isEtf && pd != null ? (

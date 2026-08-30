@@ -1,14 +1,14 @@
 import { Fragment, useState } from 'react';
 import clsx from 'clsx';
 import { useAllocation, useDividends, useOverlap, usePortfolio } from '../lib/hooks';
-import { invalidate, useApi } from '../lib/useApi';
+import { invalidate } from '../lib/useApi';
 import { api } from '../lib/api';
 import { Async, Badge, Card, RemoveButton, Stat } from '../components/ui';
 import { Donut } from '../components/charts';
 import { LotForm } from '../components/LotForm';
-import { compact, dateShort, daysUntil, money, num, pct, shares } from '../lib/format';
+import { dateShort, daysUntil, money, num, pct, shares } from '../lib/format';
 import { dirClass } from '../lib/format';
-import type { AllocationBucket, AllocationView, Lot, Position } from '../lib/types';
+import type { AllocationBucket, Lot, Position } from '../lib/types';
 
 type LotModal =
   | { mode: 'add' }
@@ -20,7 +20,6 @@ export default function Portfolio() {
   const alloc = useAllocation();
   const overlap = useOverlap();
   const divs = useDividends();
-  const settings = useApi<{ settings: Record<string, string> }>('/portfolio/settings');
   const [lotModal, setLotModal] = useState<LotModal>(null);
   const [divForm, setDivForm] = useState(false);
 
@@ -86,18 +85,10 @@ export default function Portfolio() {
         )}
       </Async>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {/* rebalancing */}
-        <Rebalance
-          alloc={alloc.data}
-          totalTwd={pf.data?.totals.market_value_twd ?? 0}
-          target={parseTarget(settings.data?.settings.target_allocation)}
-        />
-
-        {/* dividend calendar */}
-        <Card
-          title="Dividend calendar"
-          action={
+      {/* dividend calendar */}
+      <Card
+        title="Dividend calendar"
+        action={
             <button
               onClick={() => setDivForm((v) => !v)}
               className="text-[11px] text-fg-muted hover:text-fg"
@@ -178,8 +169,7 @@ export default function Portfolio() {
               </div>
             )}
           </Async>
-        </Card>
-      </div>
+      </Card>
 
       {/* overlap */}
       <Card title="Holdings overlap — direct + ETF look-through">
@@ -414,80 +404,6 @@ function AllocCard({ title, buckets }: { title: string; buckets: AllocationBucke
       ) : (
         <div className="text-xs text-fg-muted">—</div>
       )}
-    </Card>
-  );
-}
-
-// ── Rebalancing ───────────────────────────────────────────────────────────
-interface Target {
-  basis: 'by_type' | 'by_region' | 'by_currency' | 'by_tag';
-  targets: Record<string, number>;
-}
-function parseTarget(raw: string | undefined): Target | null {
-  if (!raw) return null;
-  try {
-    const t = JSON.parse(raw) as Target;
-    return t.basis && t.targets ? t : null;
-  } catch {
-    return null;
-  }
-}
-
-function Rebalance({
-  alloc,
-  totalTwd,
-  target,
-}: {
-  alloc: AllocationView | undefined;
-  totalTwd: number;
-  target: Target | null;
-}) {
-  if (!target) {
-    return (
-      <Card title="Rebalancing">
-        <div className="text-xs text-fg-muted">
-          Set a target allocation in <span className="text-fg-secondary">Settings</span> to see drift and
-          buy/sell suggestions.
-        </div>
-      </Card>
-    );
-  }
-  const buckets = alloc?.[target.basis] ?? [];
-  const current = new Map(buckets.map((b) => [b.label, b.weight_pct]));
-  const rows = Object.entries(target.targets).map(([label, tgt]) => {
-    const cur = current.get(label) ?? 0;
-    const drift = cur - tgt;
-    const deltaTwd = (-drift / 100) * totalTwd;
-    return { label, tgt, cur, drift, deltaTwd };
-  });
-  return (
-    <Card title={`Rebalancing · target ${target.basis.replace('by_', '')}`}>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-[10px] uppercase tracking-wider text-fg-muted [&>th]:py-1 [&>th]:text-right [&>th:first-child]:text-left">
-            <th>Bucket</th>
-            <th>Target</th>
-            <th>Current</th>
-            <th>Drift</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.label} className="border-t border-border/40 [&>td]:py-1.5 [&>td]:text-right [&>td:first-child]:text-left">
-              <td className="text-fg-secondary">{r.label}</td>
-              <td className="tnum">{num(r.tgt, 0)}%</td>
-              <td className="tnum">{num(r.cur, 1)}%</td>
-              <td className={clsx('tnum', dirClass(-r.drift))}>{pct(r.drift, 1)}</td>
-              <td className={clsx('tnum text-xs', dirClass(r.deltaTwd))}>
-                {Math.abs(r.deltaTwd) < totalTwd * 0.01
-                  ? 'on target'
-                  : `${r.deltaTwd > 0 ? 'buy' : 'sell'} ${compact(Math.abs(r.deltaTwd))}`}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </Card>
   );
 }

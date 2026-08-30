@@ -184,6 +184,41 @@ export async function refreshDividendHistory(): Promise<RefreshResult> {
   return { updated, failed };
 }
 
+/**
+ * Analyst / broker consensus target price (外資目標價) for watched stocks and
+ * ETFs. Yahoo `financialData`; crumb-gated, degrades to null per ticker. Rows
+ * with no analyst coverage are simply left untouched.
+ */
+export async function refreshAnalystTargets(): Promise<RefreshResult> {
+  const items = listItems().filter(
+    (i) => i.type === 'stock' || i.type === 'tw_etf' || i.type === 'us_etf',
+  );
+  if (items.length === 0) return { updated: 0, failed: 0 };
+
+  const settled = await mapPool(items, 5, async (item) => {
+    const t = await yahoo.analystTarget(toYahooSymbol(item.ticker, item.market));
+    if (!t) return false;
+    upsertQuote({
+      ticker: item.ticker,
+      target_mean_price: t.mean,
+      target_high_price: t.high,
+      target_low_price: t.low,
+      analyst_count: t.count,
+      target_price_at: new Date().toISOString(),
+      source: 'yahoo:financialData',
+    });
+    return true;
+  });
+
+  let updated = 0;
+  let failed = 0;
+  for (const r of settled) {
+    if (r.status === 'rejected') failed++;
+    else if (r.value) updated++;
+  }
+  return { updated, failed };
+}
+
 /** 外資/投信/自營商 net flows for watched Taiwan tickers. */
 export async function refreshTwInstitutional(): Promise<RefreshResult> {
   const watched = new Set(
