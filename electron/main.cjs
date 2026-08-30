@@ -21,7 +21,7 @@ fs.mkdirSync(dataDir, { recursive: true });
 // Backend reads these before its config module initialises.
 process.env.NODE_ENV = 'production';
 process.env.INVESTMENT_DATA_DIR = dataDir;
-process.env.DOTENV_CONFIG_PATH = path.join(dataDir, '.env'); // drop ANTHROPIC_API_KEY=... here
+process.env.DOTENV_CONFIG_PATH = path.join(dataDir, '.env'); // drop GEMINI_API_KEY=... here
 process.env.SERVE_FRONTEND = path.join(APP_ROOT, 'frontend', 'dist');
 
 let serverClose = null;

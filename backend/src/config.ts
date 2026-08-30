@@ -72,10 +72,11 @@ export const env = {
     fred: process.env.FRED_API_KEY ?? '',
     alphaVantage: process.env.ALPHA_VANTAGE_API_KEY ?? '',
     finnhub: process.env.FINNHUB_API_KEY ?? '',
-    anthropic: process.env.ANTHROPIC_API_KEY ?? '',
+    // Google AI Studio (Gemini) key for the News tab's AI briefing.
+    gemini: process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? '',
   },
-  // Claude model for the News tab's AI analysis. Use a Claude 4.6+ / 5 model.
-  anthropicModel: process.env.ANTHROPIC_MODEL ?? 'claude-opus-5',
+  // Gemini model for the News tab's AI analysis.
+  geminiModel: process.env.GEMINI_MODEL ?? 'gemini-3.6-flash',
 };
 
 // Writable data dir. Defaults to backend/data (dev); the desktop app points

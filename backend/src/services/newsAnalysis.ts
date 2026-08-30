@@ -1,12 +1,11 @@
 /**
  * AI news analysis (News tab). Sends recent headlines + the user's watchlist and
- * portfolio to Claude and asks for an informational market digest.
+ * portfolio to Gemini and asks for an informational market digest.
  *
  * Framed as educational market commentary, not personalised financial advice —
  * the prompt forbids specific buy/sell calls and price targets and requires a
- * disclaimer. Needs ANTHROPIC_API_KEY.
+ * disclaimer. Needs GEMINI_API_KEY (Google AI Studio).
  */
-import Anthropic from '@anthropic-ai/sdk';
 import { env } from '../config.js';
 import { listNews, saveAnalysis, latestAnalysis } from '../repos/news.repo.js';
 import type { NewsAnalysis } from '../repos/news.repo.js';
@@ -15,8 +14,18 @@ import { computePortfolio } from './portfolio.js';
 
 export class NoApiKeyError extends Error {
   constructor() {
-    super('ANTHROPIC_API_KEY is not set — add it to backend/.env to use AI analysis.');
+    super('GEMINI_API_KEY is not set — add it to backend/.env to use AI analysis.');
     this.name = 'NoApiKeyError';
+  }
+}
+
+/** Thrown when the Gemini REST API responds with a non-2xx status. */
+export class GeminiApiError extends Error {
+  status: number;
+  constructor(status: number, body: string) {
+    super(`Gemini API error (${status}): ${body}`);
+    this.name = 'GeminiApiError';
+    this.status = status;
   }
 }
 
@@ -86,29 +95,43 @@ function buildUserMessage(): { text: string; headlineCount: number } {
   return { text, headlineCount };
 }
 
+interface GeminiResponse {
+  candidates?: { content?: { parts?: { text?: string }[] } }[];
+}
+
 export async function analyzeNews(): Promise<NewsAnalysis> {
-  if (!env.keys.anthropic) throw new NoApiKeyError();
+  if (!env.keys.gemini) throw new NoApiKeyError();
 
-  const client = new Anthropic({ apiKey: env.keys.anthropic });
   const { text, headlineCount } = buildUserMessage();
+  const model = env.geminiModel;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
-  const response = await client.messages.create({
-    model: env.anthropicModel,
-    max_tokens: 4000,
-    // adaptive thinking is on by default for claude-opus-5 / sonnet-5
-    system: SYSTEM,
-    messages: [{ role: 'user', content: text }],
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-goog-api-key': env.keys.gemini,
+    },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM }] },
+      contents: [{ role: 'user', parts: [{ text }] }],
+      // Headroom: the briefing is ~400 words but newer models spend tokens on
+      // internal reasoning before the visible answer.
+      generationConfig: { maxOutputTokens: 8192, temperature: 0.7 },
+    }),
   });
 
-  const content = response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map((b) => b.text)
-    .join('\n')
+  if (!res.ok) throw new GeminiApiError(res.status, (await res.text()).slice(0, 500));
+
+  const data = (await res.json()) as GeminiResponse;
+  const content = (data.candidates?.[0]?.content?.parts ?? [])
+    .map((p) => p.text ?? '')
+    .join('')
     .trim();
 
-  if (!content) throw new Error('Claude returned no text content.');
+  if (!content) throw new Error('Gemini returned no text content.');
 
-  return saveAnalysis({ model: response.model, headline_count: headlineCount, content });
+  return saveAnalysis({ model, headline_count: headlineCount, content });
 }
 
 export { latestAnalysis };
