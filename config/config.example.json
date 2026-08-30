@@ -13,8 +13,7 @@
       { "ticker": "^GSPC", "name": "S&P 500", "type": "index" },
       { "ticker": "^IXIC", "name": "Nasdaq Composite", "type": "index" },
       { "ticker": "^N225", "name": "Nikkei 225", "type": "index" },
-      { "ticker": "^HSI", "name": "Hang Seng", "type": "index" },
-      { "ticker": "000001.SS", "name": "Shanghai Composite", "type": "index" }
+      { "ticker": "^KS11", "name": "KOSPI", "type": "index" }
     ],
     "fx": [
       { "ticker": "TWD=X", "name": "USD/TWD", "type": "fx" },
