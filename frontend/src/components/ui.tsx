@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { dirClass, pct } from '../lib/format';
 
 export function Card({
@@ -128,6 +128,70 @@ export function Async<T>({
   if (q.error && q.data === undefined) return <ErrorNote error={q.error} />;
   if (q.data === undefined) return <Empty>{empty ?? 'No data'}</Empty>;
   return <>{children(q.data)}</>;
+}
+
+/**
+ * Two-step remove control: first click arms ("remove?"), second confirms.
+ * `warn` is shown on the armed state (e.g. "still held in portfolio").
+ */
+export function RemoveButton({
+  onConfirm,
+  warn,
+  label = '✕',
+  className,
+}: {
+  onConfirm: () => void | Promise<void>;
+  warn?: string;
+  label?: string;
+  className?: string;
+}) {
+  const [armed, setArmed] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  if (armed) {
+    return (
+      <span className="inline-flex items-center gap-1" onMouseLeave={() => setArmed(false)}>
+        <button
+          onClick={async (e) => {
+            e.stopPropagation();
+            setBusy(true);
+            try {
+              await onConfirm();
+            } finally {
+              setBusy(false);
+              setArmed(false);
+            }
+          }}
+          disabled={busy}
+          className="rounded bg-bearish/20 px-1.5 py-0.5 text-[10px] font-medium text-bearish hover:bg-bearish/30"
+          title={warn}
+        >
+          {busy ? '…' : warn ? 'remove anyway' : 'remove?'}
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setArmed(false);
+          }}
+          className="text-[10px] text-fg-muted hover:text-fg"
+        >
+          ✕
+        </button>
+      </span>
+    );
+  }
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        setArmed(true);
+      }}
+      className={clsx('text-fg-muted transition-colors hover:text-bearish', className)}
+      title="Remove from watchlist"
+    >
+      {label}
+    </button>
+  );
 }
 
 export function Pill({

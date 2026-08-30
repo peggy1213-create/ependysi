@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react';
 import clsx from 'clsx';
-import { api } from '../lib/api';
-import { invalidate } from '../lib/useApi';
 import { useGroups, useWatchlist } from '../lib/hooks';
+import { addTicker, removeItem } from '../lib/watchlistActions';
 import type { WatchItem } from '../lib/types';
-import { Async, Badge, Pill } from '../components/ui';
+import { Async, Badge, Pill, RemoveButton } from '../components/ui';
 import { compact, num, pct } from '../lib/format';
 import { dirClass } from '../lib/format';
 
@@ -49,12 +48,9 @@ export default function Watchlist() {
     if (!t) return;
     setToast(`adding ${t}…`);
     try {
-      const r = await api.post<{ item: { ticker: string; name: string | null } }>('/watchlist', {
-        ticker: t,
-      });
-      setToast(`✓ ${r.item.ticker} ${r.item.name ?? ''}`);
+      const item = await addTicker(t);
+      setToast(`✓ ${item.ticker} ${item.name ?? ''}`);
       setQuick('');
-      invalidate('/watchlist');
     } catch (err) {
       setToast(`✕ ${err instanceof Error ? err.message : 'failed'}`);
     }
@@ -63,9 +59,7 @@ export default function Watchlist() {
 
   const remove = async (item: WatchItem) => {
     setMenu(null);
-    await api.del(`/watchlist/${item.id}`);
-    invalidate('/watchlist');
-    invalidate('/portfolio');
+    await removeItem(item.id);
   };
 
   const setSortKey = (k: SortKey) => {
@@ -132,10 +126,12 @@ export default function Watchlist() {
           placeholder="Quick add — type 2330, VOO, 台積電 and press Enter"
           className="flex-1 rounded border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent placeholder:text-fg-muted"
         />
-        {toast && (
-          <span className="text-xs text-fg-secondary">{toast}</span>
-        )}
+        {toast && <span className="text-xs text-fg-secondary">{toast}</span>}
       </form>
+      <p className="-mt-2 text-[11px] text-fg-muted">
+        Add: quick-add above or the <span className="text-accent">＋</span> button (with tags/groups). Remove:
+        hover a row and click ✕, or right-click the row.
+      </p>
 
       {/* filters */}
       <div className="flex flex-wrap items-center gap-2">
@@ -222,14 +218,15 @@ export default function Watchlist() {
                   </Th>
                   <th className="text-right">Prem/Disc</th>
                   <th>Tags</th>
+                  <th className="text-right"> </th>
                 </tr>
               </thead>
               <tbody>
                 {groupView && grouped
                   ? grouped.map(([g, items]) => (
-                      <FragmentGroup key={g} name={g} items={items} onMenu={setMenu} />
+                      <FragmentGroup key={g} name={g} items={items} onMenu={setMenu} onRemove={remove} />
                     ))
-                  : filtered.map((it) => <Row key={it.id} it={it} onMenu={setMenu} />)}
+                  : filtered.map((it) => <Row key={it.id} it={it} onMenu={setMenu} onRemove={remove} />)}
               </tbody>
             </table>
           </div>
@@ -242,7 +239,10 @@ export default function Watchlist() {
           style={{ left: menu.x, top: menu.y }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="px-3 py-1 text-fg-muted">{menu.item.ticker}</div>
+          <div className="px-3 py-1 text-fg-muted">
+            {menu.item.ticker}
+            {menu.item.in_portfolio && ' · held 💼'}
+          </div>
           <button
             className="block w-full px-3 py-1.5 text-left text-bearish hover:bg-surface"
             onClick={() => remove(menu.item)}
@@ -287,20 +287,22 @@ function FragmentGroup({
   name,
   items,
   onMenu,
+  onRemove,
 }: {
   name: string;
   items: WatchItem[];
   onMenu: (m: { x: number; y: number; item: WatchItem }) => void;
+  onRemove: (it: WatchItem) => void | Promise<void>;
 }) {
   return (
     <>
       <tr className="bg-bg/60">
-        <td colSpan={8} className="px-3 py-1.5 text-xs font-semibold text-accent">
+        <td colSpan={9} className="px-3 py-1.5 text-xs font-semibold text-accent">
           {name} <span className="text-fg-muted">· {items.length}</span>
         </td>
       </tr>
       {items.map((it) => (
-        <Row key={it.id} it={it} onMenu={onMenu} />
+        <Row key={it.id} it={it} onMenu={onMenu} onRemove={onRemove} />
       ))}
     </>
   );
@@ -309,9 +311,11 @@ function FragmentGroup({
 function Row({
   it,
   onMenu,
+  onRemove,
 }: {
   it: WatchItem;
   onMenu: (m: { x: number; y: number; item: WatchItem }) => void;
+  onRemove: (it: WatchItem) => void | Promise<void>;
 }) {
   const isEtf = it.type === 'tw_etf' || it.type === 'us_etf';
   const pd = it.premium_discount_pct;
@@ -352,6 +356,14 @@ function Row({
             <Badge key={t}>{t}</Badge>
           ))}
         </div>
+      </td>
+      <td className="text-right">
+        <span className="opacity-40 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+          <RemoveButton
+            onConfirm={() => onRemove(it)}
+            warn={it.in_portfolio ? 'still held in portfolio' : undefined}
+          />
+        </span>
       </td>
     </tr>
   );

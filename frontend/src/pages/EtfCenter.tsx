@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import clsx from 'clsx';
 import { useWatchlist } from '../lib/hooks';
-import { Async, Card } from '../components/ui';
+import { Async, Card, RemoveButton } from '../components/ui';
+import { removeItem } from '../lib/watchlistActions';
 import { dateShort, daysUntil, num, pct } from '../lib/format';
 import { dirClass } from '../lib/format';
 import type { WatchItem } from '../lib/types';
@@ -152,7 +153,8 @@ function EtfTable({
             {columns.map((c) => (
               <th key={c}>{heads[c]}</th>
             ))}
-            <th>±</th>
+            <th title="add to comparison">cmp</th>
+            <th> </th>
           </tr>
         </thead>
         <tbody>
@@ -161,7 +163,7 @@ function EtfTable({
             return (
               <tr
                 key={it.id}
-                className="border-b border-border/50 last:border-0 hover:bg-surface [&>td]:px-3 [&>td]:py-1.5 [&>td]:text-right [&>td:first-child]:text-left [&>td:nth-child(2)]:text-left"
+                className="group border-b border-border/50 last:border-0 hover:bg-surface [&>td]:px-3 [&>td]:py-1.5 [&>td]:text-right [&>td:first-child]:text-left [&>td:nth-child(2)]:text-left"
               >
                 <td className="font-semibold text-accent">
                   {it.ticker}
@@ -204,6 +206,14 @@ function EtfTable({
                   >
                     {compare.includes(it.ticker) ? '✓' : '+'}
                   </button>
+                </td>
+                <td>
+                  <span className="opacity-40 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                    <RemoveButton
+                      onConfirm={() => removeItem(it.id)}
+                      warn={it.in_portfolio ? 'still held in portfolio' : undefined}
+                    />
+                  </span>
                 </td>
               </tr>
             );

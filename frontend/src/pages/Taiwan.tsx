@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useMarketFlow, useMarkets, useWatchlist } from '../lib/hooks';
-import { Async, Card } from '../components/ui';
+import { Async, Card, RemoveButton } from '../components/ui';
+import { removeItem } from '../lib/watchlistActions';
 import { FlowBars, Heatmap } from '../components/charts';
 import { compact, num, pct } from '../lib/format';
 import { dirClass } from '../lib/format';
@@ -97,6 +98,7 @@ export default function Taiwan() {
                     <th>外資</th>
                     <th>Yield</th>
                     <th>Sector</th>
+                    <th> </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -115,7 +117,7 @@ export default function Taiwan() {
 
 function TwRow({ it }: { it: WatchItem }) {
   return (
-    <tr className="border-b border-border/50 last:border-0 hover:bg-surface [&>td]:px-3 [&>td]:py-1.5 [&>td]:text-right [&>td:first-child]:text-left [&>td:nth-child(2)]:text-left">
+    <tr className="group border-b border-border/50 last:border-0 hover:bg-surface [&>td]:px-3 [&>td]:py-1.5 [&>td]:text-right [&>td:first-child]:text-left [&>td:nth-child(2)]:text-left">
       <td className="font-semibold text-accent">
         {it.ticker}
         {it.in_portfolio && ' 💼'}
@@ -127,6 +129,14 @@ function TwRow({ it }: { it: WatchItem }) {
       <td className={`tnum ${dirClass(it.foreign_net)}`}>{it.foreign_net == null ? '—' : compact(it.foreign_net)}</td>
       <td className="tnum text-fg-secondary">{it.dividend_yield == null ? '—' : `${num(it.dividend_yield, 2)}%`}</td>
       <td className="text-xs text-fg-muted">{it.sector ?? '—'}</td>
+      <td>
+        <span className="opacity-40 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+          <RemoveButton
+            onConfirm={() => removeItem(it.id)}
+            warn={it.in_portfolio ? 'still held in portfolio' : undefined}
+          />
+        </span>
+      </td>
     </tr>
   );
 }
