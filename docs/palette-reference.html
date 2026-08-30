@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Dark Terminal — Warm Edition</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#111015; font-family:'SF Mono',Consolas,'Courier New',monospace; color:#E8E0D6; padding:32px; min-height:100vh; }
+
+  .container { max-width:760px; margin:0 auto; }
+
+  h1 { font-size:24px; letter-spacing:2px; color:#E8E0D6; margin-bottom:4px; }
+  .subtitle { font-size:13px; color:#7A7068; letter-spacing:0.5px; margin-bottom:32px; }
+
+  /* Swatches */
+  .swatches { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:28px; }
+  .swatch { text-align:center; }
+  .swatch-box { width:100%; aspect-ratio:1; border-radius:14px; transition:transform .2s, box-shadow .2s; cursor:pointer; }
+  .swatch-box:hover { transform:scale(1.06); }
+  .swatch-label { margin-top:10px; font-size:12px; font-weight:700; letter-spacing:1px; }
+  .swatch-hex { font-size:11px; color:#7A7068; margin-top:2px; cursor:pointer; }
+  .swatch-hex:hover { color:#E8E0D6; }
+
+  .bull .swatch-box  { background:#F5A623; box-shadow:0 0 24px #F5A62350; }
+  .bull .swatch-label { color:#F5A623; }
+  .bear .swatch-box  { background:#B07AE6; box-shadow:0 0 24px #B07AE650; }
+  .bear .swatch-label { color:#B07AE6; }
+  .accent .swatch-box  { background:#E8845A; box-shadow:0 0 24px #E8845A50; }
+  .accent .swatch-label { color:#E8845A; }
+  .neutral .swatch-box  { background:#7A7068; }
+  .neutral .swatch-label { color:#7A7068; }
+
+  /* Extra row */
+  .swatches-secondary { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:28px; }
+  .highlight .swatch-box { background:#FFD97A; box-shadow:0 0 20px #FFD97A40; }
+  .highlight .swatch-label { color:#FFD97A; }
+  .info .swatch-box { background:#6BBFC9; box-shadow:0 0 20px #6BBFC940; }
+  .info .swatch-label { color:#6BBFC9; }
+  .muted .swatch-box { background:#5C4F42; }
+  .muted .swatch-label { color:#8C7B6B; }
+  .warm-bg .swatch-box { background:#1C1916; border:1px solid #2E2824; }
+  .warm-bg .swatch-label { color:#7A7068; }
+
+  /* Surfaces */
+  .surfaces { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:28px; }
+  .surface-card { border-radius:12px; padding:18px; border:1px solid #2E2824; }
+  .surface-card .label { font-size:12px; color:#7A7068; margin-bottom:4px; }
+  .surface-card .hex   { font-size:15px; color:#E8E0D6; font-weight:600; }
+
+  /* Typography */
+  .typo-card { background:#1C1916; border-radius:12px; padding:22px; border:1px solid #2E2824; margin-bottom:28px; }
+  .section-label { font-size:11px; color:#7A7068; text-transform:uppercase; letter-spacing:1.2px; margin-bottom:14px; }
+
+  /* Preview */
+  .preview { background:#1C1916; border-radius:12px; padding:22px; border:1px solid #2E2824; margin-bottom:28px; }
+  .portfolio-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+  .portfolio-value { font-size:28px; font-weight:700; color:#E8E0D6; }
+  .portfolio-label { font-size:13px; color:#7A7068; margin-bottom:4px; }
+  .badge-up   { background:#F5A62318; color:#F5A623; padding:6px 16px; border-radius:8px; font-size:13px; font-weight:600; }
+  .badge-down { background:#B07AE618; color:#B07AE6; padding:6px 16px; border-radius:8px; font-size:13px; font-weight:600; }
+
+  .ticker-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .ticker { background:#111015; padding:14px; border-radius:10px; border:1px solid #2E2824; }
+  .ticker-name { font-size:11px; color:#7A7068; letter-spacing:0.8px; }
+  .ticker-price { font-size:16px; color:#E8E0D6; font-weight:700; margin:4px 0 2px; }
+  .ticker-change.up   { font-size:12px; color:#F5A623; }
+  .ticker-change.down { font-size:12px; color:#B07AE6; }
+  .ticker-change.flat { font-size:12px; color:#7A7068; }
+
+  /* Mini chart bars */
+  .mini-chart { display:flex; align-items:flex-end; gap:3px; margin-top:8px; height:28px; }
+  .mini-bar { width:6px; border-radius:2px; transition:height .3s ease; }
+
+  /* CSS vars export */
+  .css-card { background:#1C1916; border-radius:12px; padding:22px; border:1px solid #2E2824; }
+  .css-card pre { font-size:12px; color:#7A7068; line-height:1.8; white-space:pre-wrap; }
+  .css-card pre span.key { color:#E8845A; }
+  .css-card pre span.val { color:#F5A623; }
+
+  /* Toast */
+  .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px); background:#E8845A; color:#111015; padding:10px 24px; border-radius:8px; font-size:13px; font-weight:600; opacity:0; transition:all .35s ease; pointer-events:none; z-index:99; }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>▌DARK TERMINAL <span style="color:#E8845A;">WARM</span></h1>
+  <div class="subtitle">Non-traditional palette — amber gains, violet losses — click any hex to copy</div>
+
+  <!-- Primary Swatches -->
+  <div class="swatches">
+    <div class="swatch bull">
+      <div class="swatch-box"></div>
+      <div class="swatch-label">BULLISH</div>
+      <div class="swatch-hex" onclick="copyHex('#F5A623')">#F5A623</div>
+    </div>
+    <div class="swatch bear">
+      <div class="swatch-box"></div>
+      <div class="swatch-label">BEARISH</div>
+      <div class="swatch-hex" onclick="copyHex('#B07AE6')">#B07AE6</div>
+    </div>
+    <div class="swatch accent">
+      <div class="swatch-box"></div>
+      <div class="swatch-label">ACCENT / CTA</div>
+      <div class="swatch-hex" onclick="copyHex('#E8845A')">#E8845A</div>
+    </div>
+    <div class="swatch neutral">
+      <div class="swatch-box"></div>
+      <div class="swatch-label">NEUTRAL</div>
+      <div class="swatch-hex" onclick="copyHex('#7A7068')">#7A7068</div>
+    </div>
+  </div>
+
+  <!-- Secondary Swatches -->
+  <div class="swatches-secondary">
+    <div class="swatch highlight">
+      <div class="swatch-box"></div>
+      <div class="swatch-label">HIGHLIGHT</div>
+      <div class="swatch-hex" onclick="copyHex('#FFD97A')">#FFD97A</div>
+    </div>
+    <div class="swatch info">
+      <div class="swatch-box"></div>
+      <div class="swatch-label">INFO</div>
+      <div class="swatch-hex" onclick="copyHex('#6BBFC9')">#6BBFC9</div>
+    </div>
+    <div class="swatch muted">
+      <div class="swatch-box"></div>
+      <div class="swatch-label">MUTED</div>
+      <div class="swatch-hex" onclick="copyHex('#5C4F42')">#5C4F42</div>
+    </div>
+    <div class="swatch warm-bg">
+      <div class="swatch-box"></div>
+      <div class="swatch-label">SURFACE</div>
+      <div class="swatch-hex" onclick="copyHex('#1C1916')">#1C1916</div>
+    </div>
+  </div>
+
+  <!-- Surfaces -->
+  <div class="surfaces">
+    <div class="surface-card" style="background:#1C1916;">
+      <div class="label">Card / Panel</div>
+      <div class="hex">#1C1916</div>
+    </div>
+    <div class="surface-card" style="background:#111015;">
+      <div class="label">Background</div>
+      <div class="hex">#111015</div>
+    </div>
+  </div>
+
+  <!-- Typography -->
+  <div class="typo-card">
+    <div class="section-label">Typography</div>
+    <div style="font-size:19px; color:#E8E0D6; margin-bottom:6px;">
+      Primary Text <span style="font-size:12px; color:#7A7068; margin-left:8px;">#E8E0D6</span>
+    </div>
+    <div style="font-size:14px; color:#A89B8C;">
+      Secondary Text <span style="font-size:12px; color:#7A7068; margin-left:8px;">#A89B8C</span>
+    </div>
+  </div>
+
+  <!-- Live Preview -->
+  <div class="preview">
+    <div class="section-label">Live Preview</div>
+    <div class="portfolio-header">
+      <div>
+        <div class="portfolio-label">Portfolio Value</div>
+        <div class="portfolio-value">$248,350.00</div>
+      </div>
+      <div class="badge-up">▲ +2.34%</div>
+    </div>
+    <div class="ticker-grid">
+      <div class="ticker">
+        <div class="ticker-name">AAPL</div>
+        <div class="ticker-price">$227.40</div>
+        <div class="ticker-change up">▲ +1.12%</div>
+        <div class="mini-chart" id="chart-aapl"></div>
+      </div>
+      <div class="ticker">
+        <div class="ticker-name">TSLA</div>
+        <div class="ticker-price">$342.10</div>
+        <div class="ticker-change down">▼ −0.87%</div>
+        <div class="mini-chart" id="chart-tsla"></div>
+      </div>
+      <div class="ticker">
+        <div class="ticker-name">NVDA</div>
+        <div class="ticker-price">$131.28</div>
+        <div class="ticker-change up">▲ +3.41%</div>
+        <div class="mini-chart" id="chart-nvda"></div>
+      </div>
+      <div class="ticker">
+        <div class="ticker-name">MSFT</div>
+        <div class="ticker-price">$458.60</div>
+        <div class="ticker-change flat">— 0.00%</div>
+        <div class="mini-chart" id="chart-msft"></div>
+      </div>
+      <div class="ticker">
+        <div class="ticker-name">AMZN</div>
+        <div class="ticker-price">$198.75</div>
+        <div class="ticker-change down">▼ −0.53%</div>
+        <div class="mini-chart" id="chart-amzn"></div>
+      </div>
+      <div class="ticker">
+        <div class="ticker-name">BTC</div>
+        <div class="ticker-price">$67,420</div>
+        <div class="ticker-change up">▲ +4.12%</div>
+        <div class="mini-chart" id="chart-btc"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CSS Variables Export -->
+  <div class="css-card">
+    <div class="section-label">Copy-Paste CSS Variables</div>
+    <pre><span class="key">:root</span> {
+  <span class="key">--bg:</span>            <span class="val">#111015</span>;
+  <span class="key">--surface:</span>       <span class="val">#1C1916</span>;
+  <span class="key">--border:</span>        <span class="val">#2E2824</span>;
+  <span class="key">--text-primary:</span>  <span class="val">#E8E0D6</span>;
+  <span class="key">--text-secondary:</span><span class="val">#A89B8C</span>;
+  <span class="key">--text-muted:</span>    <span class="val">#7A7068</span>;
+  <span class="key">--bullish:</span>       <span class="val">#F5A623</span>;
+  <span class="key">--bearish:</span>       <span class="val">#B07AE6</span>;
+  <span class="key">--accent:</span>        <span class="val">#E8845A</span>;
+  <span class="key">--highlight:</span>     <span class="val">#FFD97A</span>;
+  <span class="key">--info:</span>          <span class="val">#6BBFC9</span>;
+  <span class="key">--neutral:</span>       <span class="val">#7A7068</span>;
+  <span class="key">--muted:</span>         <span class="val">#5C4F42</span>;
+}</pre>
+  </div>
+
+</div>
+
+<div class="toast" id="toast">Copied!</div>
+
+<script>
+function copyHex(hex) {
+  navigator.clipboard.writeText(hex).then(() => {
+    const t = document.getElementById('toast');
+    t.textContent = 'Copied ' + hex;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 1400);
+  });
+}
+
+// Mini sparkline bars
+const charts = {
+  'chart-aapl': { data:[12,15,14,18,16,20,22,21,24], trend:'up' },
+  'chart-tsla': { data:[22,20,21,18,19,16,15,17,14], trend:'down' },
+  'chart-nvda': { data:[10,12,11,14,16,15,19,22,26], trend:'up' },
+  'chart-msft': { data:[18,17,18,19,18,18,17,18,18], trend:'flat' },
+  'chart-amzn': { data:[20,19,21,18,17,18,16,15,14], trend:'down' },
+  'chart-btc':  { data:[8,10,9,14,12,18,16,22,28],  trend:'up' }
+};
+
+const colors = { up:'#F5A623', down:'#B07AE6', flat:'#7A7068' };
+
+Object.entries(charts).forEach(([id, {data, trend}]) => {
+  const el = document.getElementById(id);
+  const max = Math.max(...data);
+  data.forEach(v => {
+    const bar = document.createElement('div');
+    bar.className = 'mini-bar';
+    bar.style.height = ((v/max)*28) + 'px';
+    bar.style.background = colors[trend];
+    bar.style.opacity = '0.6';
+    el.appendChild(bar);
+  });
+});
+</script>
+</body>
+</html>

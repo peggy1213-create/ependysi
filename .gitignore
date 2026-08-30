@@ -1,0 +1,38 @@
+# dependencies
+node_modules/
+.npm/
+
+# build output
+dist/
+build/
+frontend/dist/
+backend/dist/
+*.tsbuildinfo
+
+# env & secrets
+.env
+.env.local
+.env.*.local
+backend/.env
+
+# local runtime data (portfolio, settings, cached quotes)
+backend/data/*.sqlite
+backend/data/*.sqlite-shm
+backend/data/*.sqlite-wal
+backend/data/*.sqlite3
+backend/data/*.db
+config/config.json
+
+# ...but keep bundled seed data
+!backend/data/tw-securities.seed.json
+
+# logs
+*.log
+npm-debug.log*
+logs/
+
+# editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

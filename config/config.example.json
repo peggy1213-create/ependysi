@@ -1,0 +1,42 @@
+{
+  "baseCurrency": "TWD",
+  "timezone": "Asia/Taipei",
+  "refresh": {
+    "//": "cron expressions (node-cron, 5-field). Conservative — respect free API rate limits.",
+    "watchlistQuotesCron": "*/10 * * * *",
+    "twInstitutionalCron": "30 15 * * 1-5",
+    "twEtfNavCron": "5 18 * * 1-5",
+    "alwaysOnCron": "*/15 * * * *",
+    "twSecuritiesListCron": "0 7 * * *",
+    "macroCron": "0 */6 * * *"
+  },
+  "macroSeries": {
+    "//": "FRED series IDs (requires FRED_API_KEY).",
+    "fred": ["DGS10", "DGS2", "FEDFUNDS", "T10Y2Y"]
+  },
+  "alwaysOn": {
+    "//": "Fixed market backdrop, not the user's watchlist. Yahoo Finance symbols.",
+    "indices": [
+      { "ticker": "^TWII", "name": "TAIEX", "type": "index" },
+      { "ticker": "^TWOII", "name": "TPEx (櫃買指數)", "type": "index" },
+      { "ticker": "^GSPC", "name": "S&P 500", "type": "index" },
+      { "ticker": "^IXIC", "name": "Nasdaq Composite", "type": "index" },
+      { "ticker": "^N225", "name": "Nikkei 225", "type": "index" },
+      { "ticker": "^HSI", "name": "Hang Seng", "type": "index" },
+      { "ticker": "000001.SS", "name": "Shanghai Composite", "type": "index" }
+    ],
+    "fx": [
+      { "ticker": "TWD=X", "name": "USD/TWD", "type": "fx" },
+      { "ticker": "DX-Y.NYB", "name": "US Dollar Index (DXY)", "type": "fx" },
+      { "ticker": "EURUSD=X", "name": "EUR/USD", "type": "fx" },
+      { "ticker": "JPY=X", "name": "USD/JPY", "type": "fx" },
+      { "ticker": "CNY=X", "name": "USD/CNY", "type": "fx" }
+    ],
+    "commodities": [
+      { "ticker": "GC=F", "name": "Gold", "type": "commodity" },
+      { "ticker": "CL=F", "name": "Crude Oil (WTI)", "type": "commodity" },
+      { "ticker": "HG=F", "name": "Copper", "type": "commodity" }
+    ],
+    "sentiment": [{ "ticker": "^VIX", "name": "VIX", "type": "index" }]
+  }
+}

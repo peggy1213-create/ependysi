@@ -1,0 +1,44 @@
+@import 'tailwindcss';
+
+/* ────────────────────────────────────────────────────────────────
+   Dark Terminal — Warm Edition
+   Non-traditional palette: amber = gains (bullish), violet = losses
+   (bearish). Warm charcoal surfaces, monospace UI.
+   Reference: docs/palette-reference.html
+   ──────────────────────────────────────────────────────────────── */
+@theme {
+  /* Structure */
+  --color-bg: #111015;
+  --color-surface: #1c1916;
+  --color-border: #2e2824;
+
+  /* Text */
+  --color-fg: #e8e0d6; /* primary   */
+  --color-fg-secondary: #a89b8c; /* secondary */
+  --color-fg-muted: #7a7068; /* muted / labels */
+
+  /* Market direction (non-traditional) */
+  --color-bullish: #f5a623; /* amber  — gains  */
+  --color-bearish: #b07ae6; /* violet — losses */
+
+  /* Accents */
+  --color-accent: #e8845a; /* CTA / primary action */
+  --color-highlight: #ffd97a;
+  --color-info: #6bbfc9;
+  --color-neutral: #7a7068; /* flat / unchanged */
+  --color-muted: #5c4f42; /* disabled / faint fills */
+
+  /* Type */
+  --font-mono: 'SF Mono', Consolas, 'Courier New', ui-monospace, monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: antialiased;
+}
