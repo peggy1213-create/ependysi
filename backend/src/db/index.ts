@@ -50,15 +50,10 @@ function migrate(): void {
         `);
       }
     },
-    // 2: holding_lots.plan_id for 定期定額 auto-generated lots (schema.sql adds it for fresh DBs)
-    () => {
-      const cols = db.prepare("PRAGMA table_info('holding_lots')").all() as unknown as {
-        name: string;
-      }[];
-      if (!cols.some((c) => c.name === 'plan_id')) {
-        db.exec('ALTER TABLE holding_lots ADD COLUMN plan_id INTEGER');
-      }
-    },
+    // 2: reserved — briefly added holding_lots.plan_id for persistent 定期定額 plans,
+    //    since dropped in favour of one-shot backfill. Kept as a no-op so DBs that
+    //    already ran it stay consistent at user_version = 2.
+    () => {},
   ];
 
   for (; version < steps.length; version++) {

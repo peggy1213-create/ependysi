@@ -22,7 +22,6 @@ export type RefreshSummary = Record<string, unknown>;
 export async function refreshAll(opts: { securities?: boolean } = {}): Promise<RefreshSummary> {
   const jobs: [string, () => Promise<unknown>][] = [
     ['watchlistQuotes', refreshWatchlistQuotes],
-    ['dcaPlans', async () => (await import('./dca.js')).materializeDuePlans()],
     ['alwaysOn', refreshAlwaysOn],
     ['etfDetails', refreshEtfDetails],
     ['twFundamentals', refreshTwFundamentals],

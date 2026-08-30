@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react';
 import clsx from 'clsx';
-import { useAllocation, useDcaPlans, useDividends, useOverlap, usePortfolio } from '../lib/hooks';
+import { useAllocation, useDividends, useOverlap, usePortfolio } from '../lib/hooks';
 import { invalidate, useApi } from '../lib/useApi';
 import { api } from '../lib/api';
 import { Async, Badge, Card, RemoveButton, Stat } from '../components/ui';
@@ -8,13 +8,11 @@ import { Donut } from '../components/charts';
 import { LotForm } from '../components/LotForm';
 import { compact, dateShort, daysUntil, money, num, pct, shares } from '../lib/format';
 import { dirClass } from '../lib/format';
-import type { AllocationBucket, AllocationView, DcaPlan, Lot, Position } from '../lib/types';
+import type { AllocationBucket, AllocationView, Lot, Position } from '../lib/types';
 
 type LotModal =
   | { mode: 'add' }
-  | { mode: 'plan-add' }
   | { mode: 'edit'; id: number; ticker: string; lot: Lot }
-  | { mode: 'plan-edit'; plan: DcaPlan }
   | null;
 
 export default function Portfolio() {
@@ -22,7 +20,6 @@ export default function Portfolio() {
   const alloc = useAllocation();
   const overlap = useOverlap();
   const divs = useDividends();
-  const plans = useDcaPlans();
   const settings = useApi<{ settings: Record<string, string> }>('/portfolio/settings');
   const [lotModal, setLotModal] = useState<LotModal>(null);
   const [divForm, setDivForm] = useState(false);
@@ -76,12 +73,6 @@ export default function Portfolio() {
           </>
         )}
       </Async>
-
-      <DcaPlansCard
-        plans={plans.data?.plans ?? []}
-        onAdd={() => setLotModal({ mode: 'plan-add' })}
-        onEdit={(plan) => setLotModal({ mode: 'plan-edit', plan })}
-      />
 
       {/* allocation */}
       <Async q={alloc}>
@@ -214,138 +205,8 @@ export default function Portfolio() {
         open={lotModal !== null}
         onClose={() => setLotModal(null)}
         editing={lotModal?.mode === 'edit' ? lotModal : null}
-        planEditing={lotModal?.mode === 'plan-edit' ? lotModal.plan : null}
-        initialMode={lotModal?.mode === 'plan-add' ? 'dca' : 'single'}
       />
     </div>
-  );
-}
-
-// ── 定期定額 plans ─────────────────────────────────────────────────────────
-function DcaPlansCard({
-  plans,
-  onAdd,
-  onEdit,
-}: {
-  plans: DcaPlan[];
-  onAdd: () => void;
-  onEdit: (plan: DcaPlan) => void;
-}) {
-  const refresh = () => {
-    invalidate('/portfolio');
-    invalidate('/portfolio/plans');
-  };
-  const toggleActive = async (p: DcaPlan) => {
-    await api.put(`/portfolio/plans/${p.id}`, { active: !p.active });
-    refresh();
-  };
-  const remove = async (id: number, lots: 'keep' | 'delete') => {
-    await api.del(`/portfolio/plans/${id}?lots=${lots}`);
-    refresh();
-  };
-
-  return (
-    <Card
-      title="定期定額"
-      pad={false}
-      action={
-        <button onClick={onAdd} className="rounded bg-accent px-2 py-1 text-[11px] font-medium text-bg">
-          ＋ 定期定額
-        </button>
-      }
-    >
-      {plans.length === 0 ? (
-        <div className="p-6 text-center text-xs text-fg-muted">
-          尚無定期定額計畫 — 點 <span className="text-accent">＋ 定期定額</span>。
-        </div>
-      ) : (
-        <ul className="divide-y divide-border/50">
-          {plans.map((p) => (
-            <PlanRow
-              key={p.id}
-              plan={p}
-              onEdit={() => onEdit(p)}
-              onToggle={() => toggleActive(p)}
-              onRemove={(lots) => remove(p.id, lots)}
-            />
-          ))}
-        </ul>
-      )}
-    </Card>
-  );
-}
-
-function PlanRow({
-  plan,
-  onEdit,
-  onToggle,
-  onRemove,
-}: {
-  plan: DcaPlan;
-  onEdit: () => void;
-  onToggle: () => void;
-  onRemove: (lots: 'keep' | 'delete') => void | Promise<void>;
-}) {
-  const [confirming, setConfirming] = useState(false);
-  const scheduleText = plan.schedule
-    .map((s) => `${s.day}號 ${money(s.amount, plan.currency, true)}`)
-    .join('、');
-  const perMonth = plan.schedule.reduce((sum, s) => sum + s.amount, 0);
-
-  return (
-    <li className={clsx('px-4 py-2.5 text-sm', !plan.active && 'opacity-50')}>
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="font-semibold text-accent">{plan.ticker}</span>
-        {!plan.active && <Badge tone="muted">已暫停</Badge>}
-        <span className="text-fg-secondary">{scheduleText}</span>
-        <span className="text-fg-muted">· {money(perMonth, plan.currency, true)}/月</span>
-        <span className="ml-auto flex items-center gap-2 text-xs">
-          <button onClick={onEdit} className="text-fg-muted hover:text-accent">
-            編輯
-          </button>
-          <button onClick={onToggle} className="text-fg-muted hover:text-fg">
-            {plan.active ? '暫停' : '恢復'}
-          </button>
-          <button onClick={() => setConfirming((c) => !c)} className="text-fg-muted hover:text-bearish">
-            刪除
-          </button>
-        </span>
-      </div>
-      <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-fg-muted">
-        <span>
-          {dateShort(plan.start_date)} → {plan.end_date ? dateShort(plan.end_date) : '進行中'}
-        </span>
-        <span>已投入 {money(plan.invested_orig, plan.currency, true)}</span>
-        <span>{plan.lots_generated} 筆</span>
-        {plan.active && plan.next_debit_date && <span>下次 {dateShort(plan.next_debit_date)}</span>}
-      </div>
-      {confirming && (
-        <div className="mt-2 flex items-center gap-2 rounded border border-bearish/30 bg-bearish/8 p-2 text-xs">
-          <span className="text-fg-secondary">刪除計畫，已產生的持股要：</span>
-          <button
-            onClick={async () => {
-              await onRemove('keep');
-              setConfirming(false);
-            }}
-            className="rounded bg-border px-2 py-0.5 text-fg-secondary hover:text-fg"
-          >
-            保留
-          </button>
-          <button
-            onClick={async () => {
-              await onRemove('delete');
-              setConfirming(false);
-            }}
-            className="rounded bg-bearish/20 px-2 py-0.5 font-medium text-bearish hover:bg-bearish/30"
-          >
-            一併刪除
-          </button>
-          <button onClick={() => setConfirming(false)} className="ml-auto text-fg-muted hover:text-fg">
-            ✕
-          </button>
-        </div>
-      )}
-    </li>
   );
 }
 
@@ -425,10 +286,7 @@ function HoldingsTable({
               {open === p.ticker &&
                 p.lots.map((l) => (
                   <tr key={l.id} className="group border-b border-border/30 bg-bg/40 text-xs [&>td]:px-3 [&>td]:py-1 [&>td]:text-right [&>td:first-child]:text-left [&>td:first-child]:pl-8">
-                    <td className="text-fg-muted">
-                      {l.purchase_date ?? 'lot ' + l.id}
-                      {l.plan_id != null && <span className="ml-1 text-accent" title="定期定額">·定</span>}
-                    </td>
+                    <td className="text-fg-muted">{l.purchase_date ?? 'lot ' + l.id}</td>
                     <td className="tnum">{shares(l.shares)}</td>
                     <td className="tnum text-fg-muted">
                       {num(l.cost_basis)} {l.currency}

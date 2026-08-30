@@ -1,7 +1,7 @@
 {
   "name": "investment-dashboard",
   "productName": "Investment Dashboard",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Self-hosted personal investment dashboard (global indices, Taiwan market, macro, portfolio).",
   "author": "Peich",

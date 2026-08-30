@@ -1,16 +1,15 @@
 /**
- * Materialise 定期定額 plans into holding lots.
+ * One-shot 定期定額 backfill: turn a start date + monthly schedule of
+ * {扣款日, 金額} into holding lots, pricing each with the Yahoo daily close on
+ * (or just before) that date so `shares = 金額 ÷ close`.
  *
- * For each due 扣款日 we look up the Yahoo daily close on (or just before) that
- * date and create a lot with shares = 金額 ÷ close. Idempotent: a plan carries a
- * `last_run_date` cursor and we also guard against a duplicate (plan_id, date).
- * Runs on every refresh (there is no background scheduler) and once at plan
- * creation.
+ * There is no stored plan — the caller re-runs this each period with the start
+ * date moved forward. Debit dates that already have a lot for the same ticker
+ * are skipped, so an overlapping re-run is safe.
  */
 import type { Market } from '../config.js';
-import { addLot, lotsByPlan } from '../repos/holdings.repo.js';
-import { listActive, setLastRun } from '../repos/dcaPlans.repo.js';
-import type { Plan } from '../repos/dcaPlans.repo.js';
+import { addLot, lotsForTicker } from '../repos/holdings.repo.js';
+import type { Lot } from '../repos/holdings.repo.js';
 import { findByTicker } from '../repos/watchlist.repo.js';
 import { getQuote } from '../repos/quotes.repo.js';
 import { detectInstrument, toYahooSymbol } from '../lib/ticker.js';
@@ -57,22 +56,6 @@ function closeOnOrBefore(closes: DailyClose[], date: string): number | null {
   return hit;
 }
 
-/** Next scheduled 扣款日 strictly after today, bounded by end_date; null if the plan is finished. */
-export function nextDebitDate(plan: Plan): string | null {
-  if (!plan.active || plan.schedule.length === 0) return null;
-  const today = todayIso();
-  const horizon = addDays(today, 400);
-  const cap = plan.end_date && plan.end_date < horizon ? plan.end_date : horizon;
-  const start = plan.start_date > today ? plan.start_date : addDays(today, 1);
-  return (
-    debitDates(
-      start,
-      cap,
-      plan.schedule.map((s) => s.day),
-    )[0] ?? null
-  );
-}
-
 function marketOf(ticker: string): Market {
   return (
     findByTicker(ticker)?.market ??
@@ -81,72 +64,67 @@ function marketOf(ticker: string): Market {
   );
 }
 
-export async function materializePlan(plan: Plan): Promise<{ created: number }> {
-  if (plan.schedule.length === 0) return { created: 0 };
+export interface DcaScheduleEntry {
+  day: number; // 1..28
+  amount: number;
+}
+
+export interface DcaParams {
+  ticker: string;
+  currency: string;
+  start_date: string; // ISO yyyy-mm-dd
+  end_date?: string | null; // ISO or null = up to today
+  schedule: DcaScheduleEntry[];
+  notes?: string | null;
+}
+
+export interface DcaResult {
+  lots: Lot[];
+  skipped: number; // debit dates already having a lot, or with no price yet
+}
+
+export async function generateDcaLots(p: DcaParams): Promise<DcaResult> {
   const today = todayIso();
-  const from = plan.last_run_date
-    ? plan.start_date > addDays(plan.last_run_date, 1)
-      ? plan.start_date
-      : addDays(plan.last_run_date, 1)
-    : plan.start_date;
-  const until = plan.end_date && plan.end_date < today ? plan.end_date : today;
-
+  const until = p.end_date && p.end_date < today ? p.end_date : today;
   const dates = debitDates(
-    from,
+    p.start_date,
     until,
-    plan.schedule.map((s) => s.day),
+    p.schedule.map((s) => s.day),
   );
-  if (dates.length === 0) return { created: 0 };
+  if (dates.length === 0) return { lots: [], skipped: 0 };
 
-  const amountByDay = new Map(plan.schedule.map((s) => [s.day, s.amount]));
-  const symbol = toYahooSymbol(plan.ticker, marketOf(plan.ticker));
-  const closes = await yahoo.history(symbol, addDays(dates[0]!, -10), today);
-  if (closes.length === 0) return { created: 0 };
+  const amountByDay = new Map(p.schedule.map((s) => [s.day, s.amount]));
+  const symbol = toYahooSymbol(p.ticker, marketOf(p.ticker));
+  const closes = await yahoo.history(symbol, addDays(dates[0]!, -10), until);
+  if (closes.length === 0) throw new Error(`no price history for ${p.ticker}`);
 
-  const existing = new Set(lotsByPlan(plan.id).map((l) => l.purchase_date));
-  let created = 0;
-  let lastDate: string | null = null;
+  const existing = new Set(lotsForTicker(p.ticker).map((l) => l.purchase_date));
+  const lots: Lot[] = [];
+  let skipped = 0;
 
   for (const date of dates) {
     if (existing.has(date)) {
-      lastDate = date;
+      skipped += 1;
       continue;
     }
     const close = closeOnOrBefore(closes, date);
-    if (close == null || close <= 0) continue; // future / no data — retry next refresh
-    const day = Number(date.slice(8, 10));
-    const amount = amountByDay.get(day);
-    if (amount == null) continue;
-    addLot({
-      ticker: plan.ticker,
-      shares: amount / close,
-      cost_basis: close,
-      currency: plan.currency,
-      purchase_date: date,
-      notes: plan.notes ?? '定期定額',
-      target_price: null,
-      stop_loss: null,
-      plan_id: plan.id,
-    });
-    created += 1;
-    lastDate = date;
-  }
-
-  if (lastDate && (!plan.last_run_date || lastDate > plan.last_run_date)) {
-    setLastRun(plan.id, lastDate);
-  }
-  return { created };
-}
-
-export async function materializeDuePlans(): Promise<{ plans: number; lotsCreated: number }> {
-  const plans = listActive();
-  let lotsCreated = 0;
-  for (const plan of plans) {
-    try {
-      lotsCreated += (await materializePlan(plan)).created;
-    } catch {
-      /* skip this plan; retried next refresh */
+    const amount = amountByDay.get(Number(date.slice(8, 10)));
+    if (close == null || close <= 0 || amount == null) {
+      skipped += 1;
+      continue;
     }
+    lots.push(
+      addLot({
+        ticker: p.ticker,
+        shares: amount / close,
+        cost_basis: close,
+        currency: p.currency,
+        purchase_date: date,
+        notes: p.notes ?? '定期定額',
+        target_price: null,
+        stop_loss: null,
+      }),
+    );
   }
-  return { plans: plans.length, lotsCreated };
+  return { lots, skipped };
 }

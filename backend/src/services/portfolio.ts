@@ -28,7 +28,6 @@ export interface LotValuation {
   notes: string | null;
   target_price: number | null;
   stop_loss: number | null;
-  plan_id: number | null;
   cost_value_orig: number;
   cost_value_twd: number | null;
   market_value_twd: number | null;
@@ -135,7 +134,6 @@ export function computePortfolio(): PortfolioSnapshot {
         notes: l.notes,
         target_price: l.target_price,
         stop_loss: l.stop_loss,
-        plan_id: l.plan_id,
         cost_value_orig: r2(costOrig)!,
         cost_value_twd: r2(costTwd),
         market_value_twd: r2(mvTwd),

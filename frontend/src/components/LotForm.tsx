@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import clsx from 'clsx';
 import { api } from '../lib/api';
 import { invalidate } from '../lib/useApi';
 import { Pill } from './ui';
-import type { DcaPlan, Lot } from '../lib/types';
+import type { Lot, SearchHit } from '../lib/types';
 
 export interface LotFormValues {
   ticker: string;
@@ -52,23 +53,25 @@ const emptyDca = (): DcaValues => ({
   rows: [{ day: '6', amount: '' }],
 });
 
+const ccyForMarket = (market: SearchHit['market']): string =>
+  market === 'US' ? 'USD' : market === 'TWSE' || market === 'TPEx' ? 'TWD' : '';
+
 /**
- * Add / edit a holding. Three shapes:
- *  - `editing`      → edit one manual lot (single mode, toggle hidden)
- *  - `planEditing`  → edit a 定期定額 plan (dca mode, toggle hidden)
- *  - neither        → add: user picks 單筆 or 定期定額 (`initialMode` seeds the pick)
+ * Add a holding. Two shapes:
+ *  - `editing` → edit one manual lot (單筆 mode, toggle hidden)
+ *  - neither   → add: user picks 單筆 or 定期定額 (`initialMode` seeds the pick).
+ *               定期定額 does a one-shot backfill — it generates a dated lot per
+ *               扣款日 from the start date to today, priced off that day's close.
  */
 export function LotForm({
   open,
   onClose,
   editing,
-  planEditing,
   initialMode = 'single',
 }: {
   open: boolean;
   onClose: () => void;
   editing?: { id: number; ticker: string; lot: Lot } | null;
-  planEditing?: DcaPlan | null;
   initialMode?: Mode;
 }) {
   const [mode, setMode] = useState<Mode>('single');
@@ -76,8 +79,6 @@ export function LotForm({
   const [dca, setDca] = useState<DcaValues>(emptyDca);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-
-  const lockedToggle = !!editing || !!planEditing;
 
   useEffect(() => {
     if (!open) return;
@@ -95,24 +96,12 @@ export function LotForm({
         target_price: l.target_price != null ? String(l.target_price) : '',
         stop_loss: l.stop_loss != null ? String(l.stop_loss) : '',
       });
-    } else if (planEditing) {
-      setMode('dca');
-      setDca({
-        ticker: planEditing.ticker,
-        currency: planEditing.currency ?? '',
-        start_date: planEditing.start_date,
-        end_date: planEditing.end_date ?? '',
-        notes: planEditing.notes ?? '',
-        rows: planEditing.schedule.length
-          ? planEditing.schedule.map((s) => ({ day: String(s.day), amount: String(s.amount) }))
-          : [{ day: '6', amount: '' }],
-      });
     } else {
       setMode(initialMode);
       setV(empty);
       setDca(emptyDca());
     }
-  }, [open, editing, planEditing, initialMode]);
+  }, [open, editing, initialMode]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -161,7 +150,7 @@ export function LotForm({
       .map((r) => ({ day: Number(r.day), amount: Number(r.amount) }))
       .filter((r) => Number.isInteger(r.day) && r.day >= 1 && r.day <= 28);
     const ticker = dca.ticker.trim().toUpperCase();
-    if (!planEditing && !ticker) {
+    if (!ticker) {
       setErr('請輸入標的代號。');
       return;
     }
@@ -170,20 +159,24 @@ export function LotForm({
       return;
     }
     const body: Record<string, unknown> = {
+      ticker,
       start_date: dca.start_date,
       end_date: dca.end_date || null,
       schedule,
       notes: dca.notes.trim() || null,
     };
     if (dca.currency.trim()) body.currency = dca.currency.trim().toUpperCase();
-    if (planEditing) {
-      await api.put(`/portfolio/plans/${planEditing.id}`, body);
-    } else {
-      body.ticker = ticker;
-      await api.post('/portfolio/plans', body);
-    }
+    const r = await api.post<{ lots_created: number; skipped: number }>('/portfolio/lots/dca', body);
     invalidate('/portfolio');
     invalidate('/watchlist');
+    if (r.lots_created === 0) {
+      setErr(
+        r.skipped > 0
+          ? '沒有新增任何持股 — 這些扣款日已有紀錄或尚無價格。'
+          : '這個區間內沒有可產生的扣款日。',
+      );
+      return;
+    }
     onClose();
   };
 
@@ -200,13 +193,7 @@ export function LotForm({
     }
   };
 
-  const title = editing
-    ? 'Edit lot'
-    : planEditing
-      ? '編輯定期定額'
-      : mode === 'dca'
-        ? '新增定期定額'
-        : 'Add holding lot';
+  const title = editing ? 'Edit lot' : mode === 'dca' ? '新增定期定額' : 'Add holding lot';
 
   return (
     <div
@@ -225,7 +212,7 @@ export function LotForm({
           </button>
         </div>
 
-        {!lockedToggle && (
+        {!editing && (
           <div className="flex gap-1.5">
             <Pill
               active={mode === 'single'}
@@ -250,15 +237,13 @@ export function LotForm({
 
         {mode === 'single' ? (
           <>
-            <Field label="Ticker">
-              <input
-                value={v.ticker}
-                onChange={set('ticker')}
-                placeholder="2330, VOO, AAPL…"
-                className={inputCls}
-                autoFocus={!editing}
-              />
-            </Field>
+            <TickerField
+              label="Ticker"
+              value={v.ticker}
+              onChange={(ticker) => setV((s) => ({ ...s, ticker }))}
+              onPickCurrency={(ccy) => setV((s) => ({ ...s, currency: s.currency || ccy }))}
+              autoFocus={!editing}
+            />
             <div className="grid grid-cols-2 gap-2">
               <Field label="Shares">
                 <input type="number" step="any" value={v.shares} onChange={set('shares')} className={inputCls} />
@@ -289,17 +274,13 @@ export function LotForm({
           </>
         ) : (
           <>
-            {!planEditing && (
-              <Field label="標的代號">
-                <input
-                  value={dca.ticker}
-                  onChange={setD('ticker')}
-                  placeholder="0050, 00878, VT…"
-                  className={inputCls}
-                  autoFocus
-                />
-              </Field>
-            )}
+            <TickerField
+              label="標的代號"
+              value={dca.ticker}
+              onChange={(ticker) => setDca((s) => ({ ...s, ticker }))}
+              onPickCurrency={(ccy) => setDca((s) => ({ ...s, currency: s.currency || ccy }))}
+              autoFocus
+            />
             <div className="grid grid-cols-2 gap-2">
               <Field label="開始日期">
                 <input type="date" value={dca.start_date} onChange={setD('start_date')} className={inputCls} />
@@ -363,7 +344,8 @@ export function LotForm({
               </Field>
             </div>
             <p className="text-[11px] text-fg-muted">
-              系統會用每個扣款日的收盤價回補到今天的持股，之後每次重新整理自動新增。
+              會用每個扣款日的收盤價，一次把開始日期到今天的持股補上（一筆一日）。
+              下個月再開這個表單、把開始日期往後移即可；已有紀錄的扣款日會自動略過。
             </p>
           </>
         )}
@@ -379,15 +361,126 @@ export function LotForm({
             disabled={busy}
             className="rounded bg-accent px-4 py-1.5 text-xs font-medium text-bg disabled:opacity-50"
           >
-            {busy ? 'saving…' : editing ? 'save' : planEditing ? '儲存' : mode === 'dca' ? '建立計畫' : 'add lot'}
+            {busy ? 'saving…' : editing ? 'save' : mode === 'dca' ? '產生持股' : 'add lot'}
           </button>
         </div>
-        {!editing && !planEditing && (
+        {!editing && (
           <p className="text-[11px] text-fg-muted">
             A ticker you don't track yet is added to the watchlist automatically.
           </p>
         )}
       </form>
+    </div>
+  );
+}
+
+/** Ticker input with a debounced stock-number / name typeahead. */
+function TickerField({
+  label,
+  value,
+  onChange,
+  onPickCurrency,
+  autoFocus,
+}: {
+  label: string;
+  value: string;
+  onChange: (ticker: string) => void;
+  onPickCurrency?: (ccy: string) => void;
+  autoFocus?: boolean;
+}) {
+  const [hits, setHits] = useState<SearchHit[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [showHits, setShowHits] = useState(false);
+  const [pickedName, setPickedName] = useState<string | null>(null);
+  const typed = useRef(false); // only search after real keystrokes, not prefill / pick
+
+  useEffect(() => {
+    if (!typed.current) return;
+    typed.current = false;
+    const q = value.trim();
+    if (q.length < 1) {
+      setHits([]);
+      setShowHits(false);
+      return;
+    }
+    const t = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const r = await api.get<{ results: SearchHit[] }>(
+          `/watchlist/search?q=${encodeURIComponent(q)}`,
+        );
+        setHits(r.results);
+        setShowHits(true);
+      } catch {
+        setHits([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 220);
+    return () => clearTimeout(t);
+  }, [value]);
+
+  const pickHit = (h: SearchHit) => {
+    typed.current = false;
+    onChange(h.ticker);
+    onPickCurrency?.(ccyForMarket(h.market));
+    setPickedName(h.name ?? null);
+    setHits([]);
+    setShowHits(false);
+  };
+
+  return (
+    <div className="block">
+      <span className="u-label mb-1 block">{label}</span>
+      <div className="relative">
+        <input
+          value={value}
+          onChange={(e) => {
+            typed.current = true;
+            setPickedName(null);
+            onChange(e.target.value);
+          }}
+          onFocus={() => hits.length > 0 && setShowHits(true)}
+          onBlur={() => setTimeout(() => setShowHits(false), 120)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && showHits && hits[0]) {
+              e.preventDefault();
+              pickHit(hits[0]);
+            }
+          }}
+          placeholder="輸入代號或名稱 — 2330, 台積電, VOO…"
+          className={inputCls}
+          autoFocus={autoFocus}
+          autoComplete="off"
+        />
+        {searching && (
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-fg-muted">…</span>
+        )}
+        {showHits && hits.length > 0 && (
+          <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded border border-border bg-bg shadow-lg">
+            {hits.map((h) => (
+              <li key={h.ticker + h.source}>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => pickHit(h)}
+                  className={clsx(
+                    'flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-surface',
+                    value.toUpperCase() === h.ticker.toUpperCase() && 'bg-surface',
+                  )}
+                >
+                  <span className="w-16 shrink-0 font-semibold text-accent">{h.ticker}</span>
+                  <span className="min-w-0 flex-1 truncate text-fg-secondary">{h.name}</span>
+                  <span className="shrink-0 text-[10px] uppercase text-fg-muted">{h.market}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      {pickedName && !showHits && (
+        <span className="mt-1 block truncate text-[11px] text-fg-muted">{pickedName}</span>
+      )}
     </div>
   );
 }

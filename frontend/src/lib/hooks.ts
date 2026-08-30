@@ -1,7 +1,6 @@
 import { useApi } from './useApi';
 import type {
   AllocationView,
-  DcaPlan,
   DividendSummary,
   Group,
   MarketFlowRow,
@@ -22,7 +21,6 @@ export const usePortfolio = () =>
   useApi<PortfolioSnapshot>('/portfolio', { refetchInterval: MIN });
 export const useAllocation = () => useApi<AllocationView>('/portfolio/allocation');
 export const useOverlap = () => useApi<OverlapView>('/portfolio/overlap');
-export const useDcaPlans = () => useApi<{ plans: DcaPlan[] }>('/portfolio/plans');
 export const useDividends = () => useApi<DividendSummary>('/portfolio/dividends');
 export const useGroups = () => useApi<{ groups: Group[] }>('/watchlist/groups');
 export const useMarketFlow = (days = 5) =>

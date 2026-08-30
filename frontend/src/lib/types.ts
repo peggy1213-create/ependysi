@@ -119,27 +119,6 @@ export interface InstitutionalResponse {
   history: InstFlowRow[];
 }
 
-export interface DcaScheduleEntry {
-  day: number; // 1..28
-  amount: number;
-}
-
-export interface DcaPlan {
-  id: number;
-  ticker: string;
-  currency: string;
-  start_date: string;
-  end_date: string | null;
-  schedule: DcaScheduleEntry[];
-  active: boolean;
-  notes: string | null;
-  last_run_date: string | null;
-  created_at: string;
-  lots_generated: number;
-  invested_orig: number;
-  next_debit_date: string | null;
-}
-
 export interface Lot {
   id: number;
   shares: number;
@@ -149,7 +128,6 @@ export interface Lot {
   notes: string | null;
   target_price: number | null;
   stop_loss: number | null;
-  plan_id: number | null;
   cost_value_orig: number;
   cost_value_twd: number | null;
   market_value_twd: number | null;

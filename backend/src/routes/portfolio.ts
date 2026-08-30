@@ -2,8 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import * as lots from '../repos/holdings.repo.js';
 import * as divRepo from '../repos/dividends.repo.js';
-import * as plans from '../repos/dcaPlans.repo.js';
-import { materializePlan, materializeDuePlans, nextDebitDate } from '../services/dca.js';
+import { generateDcaLots } from '../services/dca.js';
 import { ensureWatched } from '../services/resolve.js';
 import {
   computePortfolio,
@@ -73,7 +72,6 @@ portfolioRouter.post('/lots', async (req, res, next) => {
       notes: d.notes ?? null,
       target_price: d.target_price ?? null,
       stop_loss: d.stop_loss ?? null,
-      plan_id: null,
     });
 
     warmTicker(item); // non-blocking
@@ -105,45 +103,22 @@ portfolioRouter.delete('/lots/:id', (req, res) => {
   res.json({ deleted: lots.deleteLot(id) });
 });
 
-// ── 定期定額 plans ─────────────────────────────────────────────────────────
-const scheduleSchema = z
-  .array(
-    z.object({
-      day: z.number().int().min(1).max(28),
-      amount: z.number().positive(),
-    }),
-  )
-  .min(1)
-  .max(31);
-
-const isoDate = z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, 'expected YYYY-MM-DD');
-
-const planBody = z.object({
+// ── 定期定額 one-shot backfill ─────────────────────────────────────────────
+const dcaBody = z.object({
   ticker: z.string().trim().min(1).max(20),
   currency: z.string().trim().length(3).optional(),
-  start_date: isoDate,
-  end_date: isoDate.nullish(),
-  schedule: scheduleSchema,
+  start_date: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, 'expected YYYY-MM-DD'),
+  end_date: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/).nullish(),
+  schedule: z
+    .array(z.object({ day: z.number().int().min(1).max(28), amount: z.number().positive() }))
+    .min(1)
+    .max(31),
   notes: z.string().trim().max(500).nullish(),
 });
 
-function planView(p: plans.Plan) {
-  const generated = lots.lotsByPlan(p.id);
-  return {
-    ...p,
-    lots_generated: generated.length,
-    invested_orig: Math.round(generated.reduce((s, l) => s + l.cost_basis * l.shares, 0) * 100) / 100,
-    next_debit_date: nextDebitDate(p),
-  };
-}
-
-portfolioRouter.get('/plans', (_req, res) => {
-  res.json({ plans: plans.listPlans().map(planView) });
-});
-
-portfolioRouter.post('/plans', async (req, res, next) => {
+portfolioRouter.post('/lots/dca', async (req, res, next) => {
   try {
-    const parsed = planBody.safeParse(req.body);
+    const parsed = dcaBody.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues });
     }
@@ -151,74 +126,26 @@ portfolioRouter.post('/plans', async (req, res, next) => {
     const { item, added } = await ensureWatched(d.ticker);
     const currency = d.currency?.toUpperCase() ?? (item.market === 'US' ? 'USD' : 'TWD');
 
-    const plan = plans.addPlan({
+    const { lots: created, skipped } = await generateDcaLots({
       ticker: item.ticker,
       currency,
       start_date: d.start_date,
       end_date: d.end_date ?? null,
       schedule: d.schedule,
-      active: true,
       notes: d.notes ?? null,
     });
 
-    let created = 0;
-    try {
-      created = (await materializePlan(plan)).created;
-    } catch {
-      /* history fetch failed — lots fill in on the next refresh */
-    }
     warmTicker(item); // non-blocking
 
     res.status(201).json({
-      plan: planView(plans.getPlan(plan.id)!),
-      lots_created: created,
+      lots: created,
+      lots_created: created.length,
+      skipped,
       watchlist: { ticker: item.ticker, added },
     });
   } catch (err) {
     next(err);
   }
-});
-
-const planPatchBody = z.object({
-  currency: z.string().trim().length(3).optional(),
-  start_date: isoDate.optional(),
-  end_date: isoDate.nullish(),
-  schedule: scheduleSchema.optional(),
-  active: z.boolean().optional(),
-  notes: z.string().trim().max(500).nullish(),
-});
-
-portfolioRouter.put('/plans/:id', async (req, res, next) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id)) return res.status(400).json({ error: 'invalid_id' });
-    const parsed = planPatchBody.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues });
-    }
-    const patch = { ...parsed.data };
-    if (patch.currency) patch.currency = patch.currency.toUpperCase();
-    const updated = plans.updatePlan(id, patch);
-    if (!updated) return res.status(404).json({ error: 'not_found' });
-
-    if (updated.active) {
-      try {
-        await materializePlan(updated);
-      } catch {
-        /* retried on next refresh */
-      }
-    }
-    res.json({ plan: planView(plans.getPlan(id)!) });
-  } catch (err) {
-    next(err);
-  }
-});
-
-portfolioRouter.delete('/plans/:id', (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id)) return res.status(400).json({ error: 'invalid_id' });
-  const removedLots = req.query.lots === 'delete' ? lots.deleteLotsByPlan(id) : 0;
-  res.json({ deleted: plans.deletePlan(id), lots_deleted: removedLots });
 });
 
 // ── Dividends ──────────────────────────────────────────────────────────────
@@ -279,14 +206,13 @@ portfolioRouter.put('/settings', (req, res) => {
 portfolioRouter.post('/refresh', async (_req, res, next) => {
   try {
     const quotes = await refreshWatchlistQuotes();
-    const dca = await materializeDuePlans();
     const [etf, twFund, meta, holdings] = await Promise.all([
       refreshEtfDetails(),
       refreshTwFundamentals(),
       refreshInstrumentMeta(),
       refreshEtfHoldings(true),
     ]);
-    res.json({ quotes, dca, etf, twFund, meta, holdings });
+    res.json({ quotes, etf, twFund, meta, holdings });
   } catch (err) {
     next(err);
   }
