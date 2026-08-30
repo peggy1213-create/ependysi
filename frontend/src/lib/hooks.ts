@@ -1,10 +1,12 @@
 import { useApi } from './useApi';
 import type {
   AllocationView,
+  AnalysisMode,
   DividendSummary,
   Group,
   MarketFlowRow,
   MarketsResponse,
+  NewsAnalysesResponse,
   NewsAnalysisResponse,
   NewsResponse,
   OverlapView,
@@ -26,4 +28,9 @@ export const useGroups = () => useApi<{ groups: Group[] }>('/watchlist/groups');
 export const useMarketFlow = (days = 5) =>
   useApi<{ days: MarketFlowRow[] }>(`/taiwan/market-flow?days=${days}`, { refetchInterval: 5 * MIN });
 export const useNews = () => useApi<NewsResponse>('/news', { refetchInterval: 5 * MIN });
-export const useNewsAnalysis = () => useApi<NewsAnalysisResponse>('/news/analysis');
+export const useNewsAnalysis = (mode: AnalysisMode = 'standard') =>
+  useApi<NewsAnalysisResponse>(`/news/analysis?mode=${mode}`);
+export const useNewsAnalyses = (mode: AnalysisMode = 'standard') =>
+  useApi<NewsAnalysesResponse>(`/news/analyses?mode=${mode}`);
+export const useNewsAnalysisById = (id: number | null) =>
+  useApi<NewsAnalysisResponse>(id ? `/news/analysis/${id}` : null);

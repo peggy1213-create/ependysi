@@ -83,6 +83,24 @@ function migrate(): void {
     //    since dropped in favour of one-shot backfill. Kept as a no-op so DBs that
     //    already ran it stay consistent at user_version = 2.
     () => {},
+    // 3: news_analysis.mode — split the AI briefing into 'standard' / 'deep'.
+    () => {
+      const cols = db
+        .prepare("PRAGMA table_info('news_analysis')")
+        .all() as unknown as { name: string }[];
+      if (!cols.some((c) => c.name === 'mode')) {
+        db.exec("ALTER TABLE news_analysis ADD COLUMN mode TEXT NOT NULL DEFAULT 'standard'");
+      }
+    },
+    // 4: news_analysis.pinned — user-kept briefings survive history pruning.
+    () => {
+      const cols = db
+        .prepare("PRAGMA table_info('news_analysis')")
+        .all() as unknown as { name: string }[];
+      if (!cols.some((c) => c.name === 'pinned')) {
+        db.exec('ALTER TABLE news_analysis ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0');
+      }
+    },
   ];
 
   for (; version < steps.length; version++) {

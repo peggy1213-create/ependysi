@@ -5,7 +5,7 @@
 import { XMLParser } from 'fast-xml-parser';
 import { createHash } from 'node:crypto';
 import { fetchText } from '../lib/http.js';
-import { upsertNews, pruneNews } from '../repos/news.repo.js';
+import { upsertNews, pruneNews, pruneAnalyses } from '../repos/news.repo.js';
 import type { NewsItem } from '../repos/news.repo.js';
 
 interface Feed {
@@ -127,5 +127,6 @@ export async function refreshNews(): Promise<{ fetched: number; feeds: number }>
   const items = [...byId.values()];
   if (items.length) upsertNews(items);
   pruneNews(10);
+  pruneAnalyses(30);
   return { fetched: items.length, feeds: ok };
 }

@@ -78,6 +78,11 @@ export const env = {
   // Gemini model for the News tab's AI analysis. `||` (not `??`) so an empty
   // `GEMINI_MODEL=` line in .env falls back instead of producing a bad URL.
   geminiModel: process.env.GEMINI_MODEL?.trim() || 'gemini-3.6-flash',
+  // Model for the heavier "deep dive" briefing. Falls back to GEMINI_MODEL.
+  geminiDeepModel:
+    process.env.GEMINI_DEEP_MODEL?.trim() ||
+    process.env.GEMINI_MODEL?.trim() ||
+    'gemini-3.6-flash',
 };
 
 // Writable data dir. Defaults to backend/data (dev); the desktop app points
