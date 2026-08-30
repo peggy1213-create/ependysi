@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import { AddModal } from './components/AddModal';
 import { invalidate } from './lib/useApi';
 import { api } from './lib/api';
+import { ymd } from './lib/format';
 
 const AUTO_REFRESH_KEY = 'inv:lastAutoRefresh';
 const AUTO_REFRESH_MIN_GAP = 5 * 60_000; // don't auto-refresh more than once per 5 min
@@ -24,6 +25,13 @@ export const useAdd = () => useContext(AddCtx);
 export default function App() {
   const [addOpen, setAddOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState<number>(() => {
+    try {
+      return Number(localStorage.getItem(AUTO_REFRESH_KEY)) || 0;
+    } catch {
+      return 0;
+    }
+  });
   const autoRan = useRef(false);
 
   const refreshAll = async () => {
@@ -38,8 +46,10 @@ export default function App() {
       invalidate('/portfolio');
       invalidate('/taiwan');
       invalidate('/news');
+      const now = Date.now();
+      setUpdatedAt(now);
       try {
-        localStorage.setItem(AUTO_REFRESH_KEY, String(Date.now()));
+        localStorage.setItem(AUTO_REFRESH_KEY, String(now));
       } catch {
         /* private mode */
       }
@@ -89,6 +99,12 @@ export default function App() {
                 </NavLink>
               ))}
             </nav>
+            <span
+              className="hidden whitespace-nowrap text-[11px] tabular-nums text-fg-muted sm:inline"
+              title="Latest data refresh"
+            >
+              更新 {ymd(updatedAt)}
+            </span>
             <button
               onClick={refreshAll}
               disabled={refreshing}

@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import clsx from 'clsx';
 import { api } from '../lib/api';
 import { invalidate } from '../lib/useApi';
-import type { Lot } from '../lib/types';
+import type { Lot, SearchHit } from '../lib/types';
 
 export interface LotFormValues {
   ticker: string;
@@ -39,11 +40,22 @@ export function LotForm({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  // ── ticker typeahead ───────────────────────────────────────────────────
+  const [hits, setHits] = useState<SearchHit[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [showHits, setShowHits] = useState(false);
+  const [pickedName, setPickedName] = useState<string | null>(null);
+  const skipSearch = useRef(false);
+
   useEffect(() => {
     if (!open) return;
     setErr(null);
+    setHits([]);
+    setShowHits(false);
+    skipSearch.current = true;
     if (editing) {
       const l = editing.lot;
+      setPickedName(null);
       setV({
         ticker: editing.ticker,
         shares: String(l.shares),
@@ -55,9 +67,40 @@ export function LotForm({
         stop_loss: l.stop_loss != null ? String(l.stop_loss) : '',
       });
     } else {
+      setPickedName(null);
       setV(empty);
     }
   }, [open, editing]);
+
+  // Debounced search as the user types a stock number or name.
+  useEffect(() => {
+    if (!open) return;
+    if (skipSearch.current) {
+      skipSearch.current = false;
+      return;
+    }
+    const q = v.ticker.trim();
+    if (q.length < 1) {
+      setHits([]);
+      setShowHits(false);
+      return;
+    }
+    const t = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const r = await api.get<{ results: SearchHit[] }>(
+          `/watchlist/search?q=${encodeURIComponent(q)}`,
+        );
+        setHits(r.results);
+        setShowHits(true);
+      } catch {
+        setHits([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 220);
+    return () => clearTimeout(t);
+  }, [v.ticker, open]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -69,6 +112,20 @@ export function LotForm({
 
   const set = (k: keyof LotFormValues) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setV((s) => ({ ...s, [k]: e.target.value }));
+
+  const pickHit = (h: SearchHit) => {
+    skipSearch.current = true;
+    setV((s) => ({
+      ...s,
+      ticker: h.ticker,
+      currency:
+        s.currency ||
+        (h.market === 'US' ? 'USD' : h.market === 'TWSE' || h.market === 'TPEx' ? 'TWD' : ''),
+    }));
+    setPickedName(h.name ?? null);
+    setHits([]);
+    setShowHits(false);
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,15 +177,59 @@ export function LotForm({
           </button>
         </div>
 
-        <Field label="Ticker">
-          <input
-            value={v.ticker}
-            onChange={set('ticker')}
-            placeholder="2330, VOO, AAPL…"
-            className={inputCls}
-            autoFocus={!editing}
-          />
-        </Field>
+        <div className="block">
+          <span className="u-label mb-1 block">Ticker</span>
+          <div className="relative">
+            <input
+              value={v.ticker}
+              onChange={(e) => {
+                setPickedName(null);
+                set('ticker')(e);
+              }}
+              onFocus={() => hits.length > 0 && setShowHits(true)}
+              onBlur={() => setTimeout(() => setShowHits(false), 120)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && showHits && hits[0]) {
+                  e.preventDefault();
+                  pickHit(hits[0]);
+                }
+              }}
+              placeholder="Type a stock number or name — 2330, 台積電, VOO…"
+              className={inputCls}
+              autoFocus={!editing}
+              autoComplete="off"
+            />
+            {searching && (
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-fg-muted">
+                …
+              </span>
+            )}
+            {showHits && hits.length > 0 && (
+              <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded border border-border bg-bg shadow-lg">
+                {hits.map((h) => (
+                  <li key={h.ticker + h.source}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => pickHit(h)}
+                      className={clsx(
+                        'flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-surface',
+                        v.ticker.toUpperCase() === h.ticker.toUpperCase() && 'bg-surface',
+                      )}
+                    >
+                      <span className="w-16 shrink-0 font-semibold text-accent">{h.ticker}</span>
+                      <span className="min-w-0 flex-1 truncate text-fg-secondary">{h.name}</span>
+                      <span className="shrink-0 text-[10px] uppercase text-fg-muted">{h.market}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          {pickedName && !showHits && (
+            <span className="mt-1 block truncate text-[11px] text-fg-muted">{pickedName}</span>
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <Field label="Shares">
             <input type="number" step="any" value={v.shares} onChange={set('shares')} className={inputCls} />
