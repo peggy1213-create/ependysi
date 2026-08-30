@@ -8,6 +8,7 @@ import { macroRouter } from './macro.js';
 import { calendarRouter } from './calendar.js';
 import { sentimentRouter } from './sentiment.js';
 import { newsRouter } from './news.js';
+import { chatRouter } from './chat.js';
 import { refreshAll } from '../services/refreshAll.js';
 import { refreshWatchlistQuotes, refreshAlwaysOn } from '../services/marketData.js';
 
@@ -24,6 +25,7 @@ apiRouter.use('/taiwan', taiwanRouter); // TW institutional flows, per-ticker qu
 apiRouter.use('/portfolio', portfolioRouter); // holdings + P&L
 apiRouter.use('/alerts', alertsRouter); // target / stop-loss price alerts
 apiRouter.use('/news', newsRouter); // market news + AI analysis
+apiRouter.use('/chat', chatRouter); // AI investment Q&A assistant
 
 // Refresh ALL data now (there is no background scheduler). ?securities=1 also
 // rebuilds the TW securities master (slower). The UI's ↻ button hits this.

@@ -183,3 +183,23 @@ CREATE TABLE IF NOT EXISTS news_analysis (
   content     TEXT NOT NULL,       -- markdown from the AI briefing
   pinned      INTEGER NOT NULL DEFAULT 0  -- user-kept: survives history pruning
 );
+
+-- ── AI chat (investment Q&A assistant) ──────────────────────────────────────
+-- One row per conversation; messages hang off it. Educational Q&A grounded in
+-- the user's live portfolio / watchlist / market context (see services/chat.ts).
+CREATE TABLE IF NOT EXISTS chat_threads (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  title      TEXT,                 -- derived from the first user message
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL         -- bumped on every new message (list order)
+);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  thread_id  INTEGER NOT NULL REFERENCES chat_threads(id) ON DELETE CASCADE,
+  role       TEXT    NOT NULL,     -- 'user' | 'assistant'
+  content    TEXT    NOT NULL,
+  model      TEXT,                 -- model that produced an assistant message
+  created_at TEXT    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_thread ON chat_messages(thread_id, id);
