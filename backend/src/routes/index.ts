@@ -9,6 +9,7 @@ import { calendarRouter } from './calendar.js';
 import { sentimentRouter } from './sentiment.js';
 import { newsRouter } from './news.js';
 import { refreshAll } from '../services/refreshAll.js';
+import { refreshWatchlistQuotes, refreshAlwaysOn } from '../services/marketData.js';
 
 export const apiRouter = Router();
 
@@ -29,6 +30,20 @@ apiRouter.use('/news', newsRouter); // market news + AI analysis
 apiRouter.post('/refresh', async (req, res, next) => {
   try {
     res.json(await refreshAll({ securities: req.query.securities != null }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Prices only — watchlist quotes + always-on backdrop. Cheap enough to poll on
+// an interval during market hours (the UI does this; see App.tsx).
+apiRouter.post('/refresh/quotes', async (_req, res, next) => {
+  try {
+    const [watchlistQuotes, alwaysOn] = await Promise.all([
+      refreshWatchlistQuotes(),
+      refreshAlwaysOn(),
+    ]);
+    res.json({ watchlistQuotes, alwaysOn });
   } catch (err) {
     next(err);
   }
