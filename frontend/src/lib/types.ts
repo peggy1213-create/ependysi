@@ -111,6 +111,38 @@ export interface NewsAnalysisResponse {
 export interface NewsAnalysesResponse {
   analyses: NewsAnalysisMeta[];
 }
+// ── AI chat ────────────────────────────────────────────────────────────────
+export type ChatRole = 'user' | 'assistant';
+export interface ChatMessage {
+  id: number;
+  thread_id: number;
+  role: ChatRole;
+  content: string;
+  model: string | null;
+  created_at: string;
+}
+export interface ChatThreadMeta {
+  id: number;
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+  last_message_at: string | null;
+}
+export interface ChatListResponse {
+  threads: ChatThreadMeta[];
+  ai_enabled: boolean;
+}
+export interface ChatThreadResponse {
+  thread: { id: number; title: string | null; created_at: string; updated_at: string };
+  messages: ChatMessage[];
+  ai_enabled: boolean;
+}
+export interface ChatSendResponse {
+  thread_id: number;
+  messages: ChatMessage[];
+}
+
 export interface MarketsResponse {
   indices: MarketQuote[];
   fx: MarketQuote[];

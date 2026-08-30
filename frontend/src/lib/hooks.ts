@@ -3,6 +3,8 @@ import type {
   AlertsResponse,
   AllocationView,
   AnalysisMode,
+  ChatListResponse,
+  ChatThreadResponse,
   DividendSummary,
   Group,
   MarketFlowRow,
@@ -36,3 +38,6 @@ export const useNewsAnalyses = (mode: AnalysisMode = 'standard') =>
   useApi<NewsAnalysesResponse>(`/news/analyses?mode=${mode}`);
 export const useNewsAnalysisById = (id: number | null) =>
   useApi<NewsAnalysisResponse>(id ? `/news/analysis/${id}` : null);
+export const useChatThreads = () => useApi<ChatListResponse>('/chat');
+export const useChatThread = (id: number | null) =>
+  useApi<ChatThreadResponse>(id ? `/chat/threads/${id}` : null);

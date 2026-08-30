@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { fetchText } from '../lib/http.js';
 import { upsertNews, pruneNews, pruneAnalyses } from '../repos/news.repo.js';
 import type { NewsItem } from '../repos/news.repo.js';
+import { pruneThreads } from '../repos/chat.repo.js';
 
 interface Feed {
   url: string;
@@ -128,5 +129,6 @@ export async function refreshNews(): Promise<{ fetched: number; feeds: number }>
   if (items.length) upsertNews(items);
   pruneNews(10);
   pruneAnalyses(30);
+  pruneThreads(120);
   return { fetched: items.length, feeds: ok };
 }
