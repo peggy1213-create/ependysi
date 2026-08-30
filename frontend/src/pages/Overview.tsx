@@ -64,42 +64,6 @@ export default function Overview() {
           </Async>
         </Card>
 
-        {/* global indices */}
-        <Card title="Global indices" className="lg:col-span-2" action={<Link to="/macro" className="text-[10px] text-fg-muted hover:text-fg">macro →</Link>}>
-          <Async q={markets}>
-            {(m) => (
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {m.indices
-                  .filter((q) => q.ticker !== '^TWII' && q.ticker !== '^TWOII')
-                  .map((q) => (
-                    <IndexCard key={q.ticker} q={q} />
-                  ))}
-              </div>
-            )}
-          </Async>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        {/* sentiment */}
-        <Card title="Sentiment">
-          <Async q={markets}>
-            {(m) => {
-              const vix = m.sentiment.find((s) => s.ticker === '^VIX');
-              return (
-                <div className="grid grid-cols-2 gap-2">
-                  <Gauge value={vix?.price ?? null} min={10} max={45} label="VIX" invert />
-                  <div className="flex flex-col items-center justify-center text-center">
-                    <div className="text-lg font-semibold text-fg-muted">—</div>
-                    <div className="u-label">Fear &amp; Greed</div>
-                    <div className="mt-1 text-[10px] text-fg-muted">not wired</div>
-                  </div>
-                </div>
-              );
-            }}
-          </Async>
-        </Card>
-
         {/* foreign 5-day flow */}
         <Card title="外資買賣超 · 5-day (全市場)" className="lg:col-span-2">
           <Async q={flow} empty="No flow data yet.">
@@ -121,6 +85,42 @@ export default function Overview() {
                       {compact(last.foreign_net)}
                     </span>{' '}
                     <span className="text-fg-muted">on {last.date}</span>
+                  </div>
+                </div>
+              );
+            }}
+          </Async>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* global indices */}
+        <Card title="Global indices" className="lg:col-span-2" action={<Link to="/macro" className="text-[10px] text-fg-muted hover:text-fg">macro →</Link>}>
+          <Async q={markets}>
+            {(m) => (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {m.indices
+                  .filter((q) => q.ticker !== '^TWII' && q.ticker !== '^TWOII')
+                  .map((q) => (
+                    <IndexCard key={q.ticker} q={q} />
+                  ))}
+              </div>
+            )}
+          </Async>
+        </Card>
+
+        {/* sentiment */}
+        <Card title="Sentiment">
+          <Async q={markets}>
+            {(m) => {
+              const vix = m.sentiment.find((s) => s.ticker === '^VIX');
+              return (
+                <div className="grid grid-cols-2 gap-2">
+                  <Gauge value={vix?.price ?? null} min={10} max={45} label="VIX" invert />
+                  <div className="flex flex-col items-center justify-center text-center">
+                    <div className="text-lg font-semibold text-fg-muted">—</div>
+                    <div className="u-label">Fear &amp; Greed</div>
+                    <div className="mt-1 text-[10px] text-fg-muted">not wired</div>
                   </div>
                 </div>
               );
