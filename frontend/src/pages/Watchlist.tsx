@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import clsx from 'clsx';
 import { useGroups, useWatchlist } from '../lib/hooks';
-import { addTicker, removeItem } from '../lib/watchlistActions';
+import { addTicker, removeItem, updateTags } from '../lib/watchlistActions';
 import type { WatchItem } from '../lib/types';
 import { Async, Badge, Pill, RemoveButton } from '../components/ui';
 import { compact, num, pct } from '../lib/format';
@@ -252,22 +252,111 @@ export default function Watchlist() {
 
       {menu && (
         <div
-          className="fixed z-50 u-card overflow-hidden py-1 text-xs shadow-xl"
-          style={{ left: menu.x, top: menu.y }}
+          className="fixed z-50 u-card w-60 py-1 text-xs shadow-xl"
+          style={{
+            left: Math.min(menu.x, window.innerWidth - 260),
+            top: Math.min(menu.y, window.innerHeight - 230),
+          }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="px-3 py-1 text-fg-muted">
             {menu.item.ticker}
             {menu.item.in_portfolio && ' · held 💼'}
           </div>
+          <TagEditor
+            key={menu.item.id}
+            item={wl.data?.items.find((i) => i.id === menu.item.id) ?? menu.item}
+            allTags={allTags}
+          />
           <button
-            className="block w-full px-3 py-1.5 text-left text-bearish hover:bg-surface"
+            className="mt-1 block w-full border-t border-border px-3 py-1.5 text-left text-bearish hover:bg-surface"
             onClick={() => remove(menu.item)}
           >
             Remove from watchlist
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function TagEditor({ item, allTags }: { item: WatchItem; allTags: string[] }) {
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+  const listId = `tags-${item.id}`;
+
+  const commit = async (next: string[]) => {
+    setBusy(true);
+    try {
+      await updateTags(item.id, next);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const addFromDraft = () => {
+    const tokens = draft
+      .split(/[,\n]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (!tokens.length) return;
+    const seen = new Set(item.tags.map((t) => t.toLowerCase()));
+    const merged = [...item.tags];
+    for (const tok of tokens) {
+      if (!seen.has(tok.toLowerCase())) {
+        seen.add(tok.toLowerCase());
+        merged.push(tok);
+      }
+    }
+    setDraft('');
+    if (merged.length !== item.tags.length) void commit(merged);
+  };
+
+  const removeTag = (t: string) => void commit(item.tags.filter((x) => x !== t));
+
+  const suggestions = allTags.filter((t) => !item.tags.some((x) => x.toLowerCase() === t.toLowerCase()));
+
+  return (
+    <div className="px-3 py-1.5">
+      <div className="mb-1 flex items-center justify-between text-fg-muted">
+        <span>Tags</span>
+        {busy && <span className="text-[10px]">saving…</span>}
+      </div>
+      {item.tags.length > 0 && (
+        <div className="mb-1.5 flex flex-wrap gap-1">
+          {item.tags.map((t) => (
+            <span key={t} className="inline-flex items-center gap-1 rounded bg-border px-1.5 py-0.5 text-[10px] text-fg-secondary">
+              {t}
+              <button
+                className="text-fg-muted hover:text-bearish"
+                onClick={() => removeTag(t)}
+                aria-label={`remove ${t}`}
+              >
+                ✕
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            addFromDraft();
+          }
+        }}
+        onBlur={addFromDraft}
+        list={listId}
+        placeholder="add tag + Enter"
+        className="w-full rounded bg-surface px-2 py-1 text-[11px] outline-none placeholder:text-fg-muted focus:ring-1 focus:ring-accent"
+      />
+      <datalist id={listId}>
+        {suggestions.map((t) => (
+          <option key={t} value={t} />
+        ))}
+      </datalist>
     </div>
   );
 }

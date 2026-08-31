@@ -249,17 +249,22 @@ export async function refreshMarketFlow(): Promise<RefreshResult> {
   const have = new Set(recentFlow(15).map((r) => r.date));
   let updated = 0;
   let failed = 0;
+  let covered = 0; // recent trading days confirmed present (fetched now or already stored)
   const d = new Date();
-  for (let scanned = 0; scanned < 14; scanned++) {
-    if (updated >= 7 || have.size >= 10) break;
+  for (let scanned = 0; scanned < 14 && covered < 7; scanned++) {
     const dow = d.getUTCDay();
     const iso = d.toISOString().slice(0, 10);
     d.setUTCDate(d.getUTCDate() - 1);
-    if (dow === 0 || dow === 6 || have.has(iso)) continue;
+    if (dow === 0 || dow === 6) continue;
+    if (have.has(iso)) {
+      covered++;
+      continue;
+    }
     const flow = await twse.marketFlow(iso);
     if (flow && flow.foreign_net != null) {
       upsertFlow(flow);
       have.add(iso);
+      covered++;
       updated++;
     } else {
       failed++;

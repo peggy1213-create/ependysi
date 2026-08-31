@@ -22,6 +22,13 @@ export async function addTicker(
   return r.item;
 }
 
+/** Replace a watchlist item's tags (free-form; new tags are created on the fly). */
+export async function updateTags(id: number, tags: string[]): Promise<void> {
+  await api.put(`/watchlist/${id}`, { tags });
+  invalidate('/watchlist');
+  invalidate('/portfolio');
+}
+
 /** Stop tracking a watchlist item. Holdings (if any) are NOT deleted. */
 export async function removeItem(id: number): Promise<void> {
   await api.del(`/watchlist/${id}`);
