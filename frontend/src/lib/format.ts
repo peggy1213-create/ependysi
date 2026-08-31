@@ -73,10 +73,10 @@ export function dateShort(iso: string | null | undefined): string {
   return iso.slice(0, 10);
 }
 
-/** YYYY/MM/DD HH:MM (local time) from an ISO string. */
-export function dateTime(iso: string | null | undefined): string {
-  if (!iso) return '—';
-  const d = new Date(iso);
+/** YYYY/MM/DD HH:MM (local time) from a timestamp, ISO string, or Date. */
+export function dateTime(input: number | string | Date | null | undefined): string {
+  if (input == null || input === 0) return '—';
+  const d = input instanceof Date ? input : new Date(input);
   if (Number.isNaN(d.getTime())) return '—';
   const hh = String(d.getHours()).padStart(2, '0');
   const mm = String(d.getMinutes()).padStart(2, '0');

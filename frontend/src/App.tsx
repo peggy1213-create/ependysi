@@ -5,7 +5,7 @@ import { AddModal } from './components/AddModal';
 import { AlertsBell } from './components/AlertsBell';
 import { invalidate } from './lib/useApi';
 import { api } from './lib/api';
-import { ymd } from './lib/format';
+import { dateTime } from './lib/format';
 import { isTwMarketOpen } from './lib/market';
 
 const AUTO_REFRESH_KEY = 'inv:lastAutoRefresh';
@@ -127,7 +127,7 @@ export default function App() {
               className="hidden whitespace-nowrap text-[11px] tabular-nums text-fg-muted sm:inline"
               title="Latest data refresh"
             >
-              更新 {ymd(updatedAt)}
+              更新 {dateTime(updatedAt)}
             </span>
             <AlertsBell />
             <button
