@@ -7,7 +7,9 @@ import type {
   ChatThreadResponse,
   DividendSummary,
   Group,
+  IndustryStocksResponse,
   MarketFlowRow,
+  RankingsResponse,
   MarketsResponse,
   NewsAnalysesResponse,
   NewsAnalysisResponse,
@@ -31,6 +33,10 @@ export const useDividends = () => useApi<DividendSummary>('/portfolio/dividends'
 export const useGroups = () => useApi<{ groups: Group[] }>('/watchlist/groups');
 export const useMarketFlow = (days = 5) =>
   useApi<{ days: MarketFlowRow[] }>(`/taiwan/market-flow?days=${days}`, { refetchInterval: 5 * MIN });
+export const useRankings = () =>
+  useApi<RankingsResponse>('/rankings', { refetchInterval: 5 * MIN });
+export const useIndustryStocks = (code: string | null, sort: 'change' | 'volume' | 'turnover') =>
+  useApi<IndustryStocksResponse>(code ? `/rankings/industry/${code}?sort=${sort}` : null);
 export const useNews = () => useApi<NewsResponse>('/news', { refetchInterval: 5 * MIN });
 export const useNewsAnalysis = (mode: AnalysisMode = 'standard') =>
   useApi<NewsAnalysisResponse>(`/news/analysis?mode=${mode}`);

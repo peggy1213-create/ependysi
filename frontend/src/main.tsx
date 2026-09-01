@@ -5,6 +5,7 @@ import './index.css';
 import App from './App.tsx';
 import Overview from './pages/Overview.tsx';
 import Watchlist from './pages/Watchlist.tsx';
+import Rankings from './pages/Rankings.tsx';
 import News from './pages/News.tsx';
 import Chat from './pages/Chat.tsx';
 import Macro from './pages/Macro.tsx';
@@ -19,6 +20,7 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <Overview /> },
       { path: 'watchlist', element: <Watchlist /> },
+      { path: 'rankings', element: <Rankings /> },
       { path: 'news', element: <News /> },
       { path: 'chat', element: <Chat /> },
       { path: 'macro', element: <Macro /> },

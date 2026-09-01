@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { watchlistRouter } from './watchlist.js';
 import { marketsRouter } from './markets.js';
 import { taiwanRouter } from './taiwan.js';
+import { rankingsRouter } from './rankings.js';
 import { portfolioRouter } from './portfolio.js';
 import { alertsRouter } from './alerts.js';
 import { macroRouter } from './macro.js';
@@ -22,6 +23,7 @@ apiRouter.get('/health', (_req, res) => {
 apiRouter.use('/watchlist', watchlistRouter); // user-managed tracked instruments + search + groups
 apiRouter.use('/markets', marketsRouter); // always-on: indices, FX, commodities, VIX
 apiRouter.use('/taiwan', taiwanRouter); // TW institutional flows, per-ticker quote
+apiRouter.use('/rankings', rankingsRouter); // market-wide TW rankings (漲跌幅 / 熱門 / 買超 / 產業)
 apiRouter.use('/portfolio', portfolioRouter); // holdings + P&L
 apiRouter.use('/alerts', alertsRouter); // target / stop-loss price alerts
 apiRouter.use('/news', newsRouter); // market news + AI analysis
