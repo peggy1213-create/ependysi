@@ -15,6 +15,7 @@ const QUOTE_POLL_MS = 60_000; // during TW market hours, pull fresh prices this 
 const TABS = [
   { to: '/', label: 'Overview', end: true },
   { to: '/watchlist', label: 'Watchlist' },
+  { to: '/rankings', label: 'Rankings' },
   { to: '/news', label: 'News' },
   { to: '/chat', label: 'Chat' },
   { to: '/macro', label: 'Macro' },
@@ -48,6 +49,7 @@ export default function App() {
       invalidate('/markets');
       invalidate('/portfolio');
       invalidate('/taiwan');
+      invalidate('/rankings');
       invalidate('/news');
       invalidate('/alerts');
       const now = Date.now();

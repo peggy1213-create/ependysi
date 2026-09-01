@@ -71,6 +71,40 @@ export interface MarketQuote {
   fetched_at: string | null;
 }
 
+export interface RankRow {
+  ticker: string;
+  name: string;
+  market: 'TWSE' | 'TPEx';
+  is_etf: boolean;
+  price: number | null;
+  change_pct: number | null;
+  volume: number | null;
+  turnover: number | null;
+}
+export interface InstRankRow extends RankRow {
+  net_lots: number;
+}
+export interface IndustryRef {
+  code: string;
+  name: string;
+  count: number;
+}
+export interface RankingsResponse {
+  as_of: string;
+  fetched_at: string;
+  gainers: RankRow[];
+  losers: RankRow[];
+  volume: RankRow[];
+  foreign_buy: InstRankRow[];
+  trust_buy: InstRankRow[];
+  industries: IndustryRef[];
+}
+export interface IndustryStocksResponse {
+  code: string;
+  name: string | null;
+  stocks: RankRow[];
+}
+
 export interface MarketFlowRow {
   date: string;
   foreign_net: number | null;
