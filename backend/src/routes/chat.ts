@@ -36,6 +36,7 @@ chatRouter.delete('/threads/:id', (req, res) => {
 const sendBody = z.object({
   thread_id: z.number().int().positive().nullish(),
   content: z.string().trim().min(1).max(MAX_MESSAGE),
+  web_search: z.boolean().optional(),
 });
 
 // POST /api/chat  — body { thread_id?, content }
@@ -46,7 +47,7 @@ chatRouter.post('/', async (req, res, next) => {
   if (!parsed.success) {
     return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues });
   }
-  const { thread_id, content } = parsed.data;
+  const { thread_id, content, web_search } = parsed.data;
 
   try {
     let thread = thread_id ? repo.getThread(thread_id) : undefined;
@@ -56,7 +57,9 @@ chatRouter.post('/', async (req, res, next) => {
       ? repo.listMessages(thread.id).map((m) => ({ role: m.role, content: m.content }))
       : [];
 
-    const { content: reply, model } = await runChat(history, content);
+    const { content: reply, model } = await runChat(history, content, {
+      webSearch: web_search ?? false,
+    });
 
     if (!thread) thread = repo.createThread(titleFrom(content));
     const userMsg = repo.addMessage({ thread_id: thread.id, role: 'user', content });
