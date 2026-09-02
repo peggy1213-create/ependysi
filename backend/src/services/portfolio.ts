@@ -62,6 +62,13 @@ export interface Position {
   stop_loss: number | null;
   target_upside_pct: number | null;
   stop_downside_pct: number | null;
+  // 外資/分析師目標價 — Yahoo financialData consensus (null when no analyst coverage)
+  analyst_target_mean: number | null;
+  analyst_target_high: number | null;
+  analyst_target_low: number | null;
+  analyst_count: number | null;
+  analyst_upside_pct: number | null;
+  analyst_target_at: string | null;
   dividend_yield: number | null;
   est_annual_income_twd: number | null;
   next_ex_dividend_date: string | null;
@@ -164,6 +171,12 @@ export function computePortfolio(): PortfolioSnapshot {
     const dayPnlTwd =
       changePct != null && mvTwd != null ? mvTwd - mvTwd / (1 + changePct / 100) : null;
 
+    const analystMean = q?.target_mean_price ?? null;
+    const analystUpside =
+      analystMean != null && price != null && price > 0
+        ? r2(((analystMean - price) / price) * 100)
+        : null;
+
     positions.push({
       ticker,
       name: q?.name ?? w?.name ?? null,
@@ -193,6 +206,12 @@ export function computePortfolio(): PortfolioSnapshot {
       stop_loss: stop,
       target_upside_pct: target != null && price ? r2((target / price - 1) * 100) : null,
       stop_downside_pct: stop != null && price ? r2((stop / price - 1) * 100) : null,
+      analyst_target_mean: r2(analystMean),
+      analyst_target_high: r2(q?.target_high_price ?? null),
+      analyst_target_low: r2(q?.target_low_price ?? null),
+      analyst_count: q?.analyst_count ?? null,
+      analyst_upside_pct: analystUpside,
+      analyst_target_at: q?.target_price_at ?? null,
       dividend_yield: dividendYield,
       est_annual_income_twd: r2(estIncomeTwd),
       next_ex_dividend_date: q?.next_ex_dividend_date ?? null,

@@ -254,6 +254,7 @@ function HoldingsTable({
             <th>Today</th>
             <th>Weight</th>
             <th>Target / Stop</th>
+            <th>外資目標價</th>
             <th> </th>
           </tr>
         </thead>
@@ -302,6 +303,20 @@ function HoldingsTable({
                     <span className="text-fg-muted">—</span>
                   )}
                 </td>
+                <td className="tnum text-xs" title={analystTargetTitle(p)}>
+                  {p.analyst_target_mean != null ? (
+                    <>
+                      <span className="text-fg-secondary">{num(p.analyst_target_mean)}</span>
+                      {p.analyst_upside_pct != null && (
+                        <span className={clsx('ml-1', dirClass(p.analyst_upside_pct))}>
+                          ({pct(p.analyst_upside_pct)})
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-fg-muted">—</span>
+                  )}
+                </td>
                 <td />
               </tr>
               {open === p.ticker &&
@@ -317,7 +332,7 @@ function HoldingsTable({
                     <td className={clsx('tnum', dirClass(l.unrealized_pnl_twd))}>
                       {money(l.unrealized_pnl_twd, 'TWD', true)} {pct(l.unrealized_pnl_pct)}
                     </td>
-                    <td colSpan={2} className="truncate text-left text-fg-muted">
+                    <td colSpan={3} className="truncate text-left text-fg-muted">
                       {l.notes}
                     </td>
                     <td className="text-right">
@@ -342,6 +357,15 @@ function HoldingsTable({
       </table>
     </div>
   );
+}
+
+function analystTargetTitle(p: Position): string {
+  const parts: string[] = [];
+  if (p.analyst_target_low != null && p.analyst_target_high != null)
+    parts.push(`區間 ${num(p.analyst_target_low)}–${num(p.analyst_target_high)}`);
+  if (p.analyst_count != null) parts.push(`${p.analyst_count} 位分析師`);
+  if (p.analyst_target_at) parts.push(`更新 ${dateShort(p.analyst_target_at)}`);
+  return ['外資/分析師目標價 (Yahoo 綜合)', ...parts].join(' · ');
 }
 
 function DividendForm({ onDone }: { onDone: () => void }) {

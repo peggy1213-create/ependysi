@@ -241,6 +241,12 @@ export interface Position {
   stop_loss: number | null;
   target_upside_pct: number | null;
   stop_downside_pct: number | null;
+  analyst_target_mean: number | null;
+  analyst_target_high: number | null;
+  analyst_target_low: number | null;
+  analyst_count: number | null;
+  analyst_upside_pct: number | null;
+  analyst_target_at: string | null;
   dividend_yield: number | null;
   est_annual_income_twd: number | null;
   next_ex_dividend_date: string | null;

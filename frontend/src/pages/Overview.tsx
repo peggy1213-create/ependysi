@@ -2,9 +2,15 @@ import { Link } from 'react-router-dom';
 import { useMarketFlow, useMarkets, usePortfolio } from '../lib/hooks';
 import { Async, Card, Stat } from '../components/ui';
 import { FlowBars, Gauge } from '../components/charts';
-import { compact, money, num, pct } from '../lib/format';
+import { compact, money, num, pct, signed } from '../lib/format';
 import { dirClass } from '../lib/format';
 import type { MarketQuote } from '../lib/types';
+
+/** Absolute point change vs. previous close, derived from price + change_pct. */
+function points(price: number | null, changePct: number | null): number | null {
+  if (price == null || changePct == null) return null;
+  return price - price / (1 + changePct / 100);
+}
 
 export default function Overview() {
   const markets = useMarkets();
@@ -48,13 +54,19 @@ export default function Overview() {
                     <span className={`text-3xl font-bold tnum glow ${dirClass(taiex.change_pct)}`}>
                       {num(taiex.price, 2)}
                     </span>
-                    <span className={`tnum ${dirClass(taiex.change_pct)}`}>{pct(taiex.change_pct)}</span>
+                    <span className={`tnum ${dirClass(taiex.change_pct)}`}>
+                      {signed(points(taiex.price, taiex.change_pct), 2)} ({pct(taiex.change_pct)})
+                    </span>
                   </div>
                   <div className="mt-2 flex gap-5 text-xs text-fg-muted">
                     {taiex.volume != null && taiex.volume > 0 && <span>Vol {compact(taiex.volume)}</span>}
                     {tpex && (
                       <span>
-                        櫃買 <span className={dirClass(tpex.change_pct)}>{num(tpex.price, 2)} ({pct(tpex.change_pct)})</span>
+                        櫃買{' '}
+                        <span className={dirClass(tpex.change_pct)}>
+                          {num(tpex.price, 2)} ({signed(points(tpex.price, tpex.change_pct), 2)},{' '}
+                          {pct(tpex.change_pct)})
+                        </span>
                       </span>
                     )}
                   </div>
