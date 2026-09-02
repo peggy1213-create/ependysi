@@ -22,6 +22,24 @@ export default function Chat() {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [webSearch, setWebSearch] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('chat.webSearch') === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleWebSearch = () =>
+    setWebSearch((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem('chat.webSearch', next ? '1' : '0');
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
 
   const loaded = useChatThread(activeId);
   const endRef = useRef<HTMLDivElement>(null);
@@ -76,6 +94,7 @@ export default function Chat() {
       const res = await api.post<ChatSendResponse>('/chat', {
         thread_id: activeId ?? undefined,
         content,
+        web_search: webSearch,
       });
       setActiveId(res.thread_id);
       setMessages((m) => [...m.filter((x) => x.id !== temp.id), ...res.messages]);
@@ -168,7 +187,9 @@ export default function Chat() {
                   <div className="pt-2">
                     <p className="text-sm text-fg-secondary">
                       Ask about your portfolio, watchlist, or the market. Answers are grounded in
-                      your live holdings and cached data — educational context, not buy/sell advice.
+                      your live holdings and cached data — analysis and opinion, not licensed
+                      financial advice. Turn on <span className="text-fg-secondary">Web search</span>{' '}
+                      below for questions that need live prices or the latest financials.
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {SUGGESTIONS.map((s) => (
@@ -217,7 +238,37 @@ export default function Chat() {
                 </div>
               )}
 
-              <div className="mt-3 flex items-end gap-2 border-t border-border pt-3">
+              <div className="mt-3 flex items-center justify-between border-t border-border pt-2">
+                <button
+                  type="button"
+                  onClick={toggleWebSearch}
+                  aria-pressed={webSearch}
+                  title={
+                    webSearch
+                      ? 'Web search ON — Gemini looks up live prices, financials and news (uses Google Search quota)'
+                      : 'Web search OFF — answers use only the cached dashboard data in context'
+                  }
+                  className={clsx(
+                    'flex items-center gap-1.5 rounded border px-2 py-1 text-[11px] font-medium transition-colors',
+                    webSearch
+                      ? 'border-accent bg-accent/15 text-fg'
+                      : 'border-border text-fg-muted hover:text-fg-secondary',
+                  )}
+                >
+                  <span
+                    className={clsx(
+                      'inline-block h-2 w-2 rounded-full',
+                      webSearch ? 'bg-accent' : 'bg-fg-muted/50',
+                    )}
+                  />
+                  🌐 Web search {webSearch ? 'on' : 'off'}
+                </button>
+                <span className="text-[10px] text-fg-muted">
+                  {webSearch ? 'live lookup + sources' : 'cached data only'}
+                </span>
+              </div>
+
+              <div className="mt-2 flex items-end gap-2">
                 <textarea
                   ref={inputRef}
                   value={draft}
