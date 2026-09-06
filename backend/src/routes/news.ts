@@ -82,7 +82,8 @@ newsRouter.post('/analyze', async (req, res, next) => {
       return res.status(502).json({
         error: 'gemini_error',
         status: err.status,
-        message: err.message,
+        message: err.friendly,
+        detail: err.message,
       });
     }
     next(err);

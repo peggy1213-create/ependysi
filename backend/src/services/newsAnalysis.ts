@@ -33,11 +33,30 @@ export class NoApiKeyError extends Error {
 /** Thrown when the Gemini REST API responds with a non-2xx status. */
 export class GeminiApiError extends Error {
   status: number;
+  /** Short, plain-language explanation — safe to show directly in the UI. */
+  friendly: string;
   constructor(status: number, body: string) {
     super(`Gemini API error (${status}): ${body}`);
     this.name = 'GeminiApiError';
     this.status = status;
+    this.friendly = friendlyGeminiMessage(status);
   }
+}
+
+function friendlyGeminiMessage(status: number): string {
+  if (status === 429) {
+    return "The AI service is over its usage quota right now (Gemini's free-tier limit). Wait a minute and try again. If it keeps failing, the daily limit is likely reached — that resets at midnight US Pacific time. Turning off Web search uses less quota.";
+  }
+  if (status === 401 || status === 403) {
+    return 'The Gemini API key was rejected. Check GEMINI_API_KEY in your .env and that the key is still active.';
+  }
+  if (status === 503) {
+    return 'The AI service is temporarily overloaded. Try again in a moment.';
+  }
+  if (status >= 500) {
+    return 'The AI service had a server error. Try again in a moment.';
+  }
+  return `The AI service returned an error (${status}). Try again shortly.`;
 }
 
 const SYSTEM_STANDARD = `You are a markets news analyst writing a briefing for one retail investor based in Taiwan (base currency TWD). You are given recent headlines and the investor's watchlist and current holdings.

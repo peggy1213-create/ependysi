@@ -76,7 +76,12 @@ chatRouter.post('/', async (req, res, next) => {
       return res.status(400).json({ error: 'no_api_key', message: err.message });
     }
     if (err instanceof GeminiApiError) {
-      return res.status(502).json({ error: 'gemini_error', status: err.status, message: err.message });
+      return res.status(502).json({
+        error: 'gemini_error',
+        status: err.status,
+        message: err.friendly,
+        detail: err.message,
+      });
     }
     next(err);
   }
