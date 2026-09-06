@@ -19,6 +19,7 @@
 import { env } from '../config.js';
 import { NoApiKeyError, GeminiApiError } from './newsAnalysis.js';
 import { buildChatContext } from './chatContext.js';
+import { sleep } from '../lib/http.js';
 
 export { NoApiKeyError, GeminiApiError };
 
@@ -258,6 +259,35 @@ function sourcesBlock(data: GeminiResponse): string {
   return lines.length ? `\n\n---\n\n**🔎 來源 / Sources**\n${lines.join('\n')}` : '';
 }
 
+/**
+ * POST to Gemini, retrying transient failures (429 per-minute rate limit, 503
+ * overload) with backoff. A `Retry-After` header, when present, wins over the
+ * exponential default. A 429 that survives every attempt is the daily quota —
+ * it surfaces as a GeminiApiError with a friendly message.
+ */
+async function postGemini(url: string, apiKey: string, body: string): Promise<Response> {
+  const RETRYABLE = new Set([429, 503]);
+  const maxAttempts = 3;
+  let res!: Response;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
+      body,
+    });
+    if (res.ok || !RETRYABLE.has(res.status) || attempt === maxAttempts) return res;
+
+    await res.body?.cancel().catch(() => {});
+    const retryAfter = Number(res.headers.get('retry-after'));
+    const waitMs =
+      Number.isFinite(retryAfter) && retryAfter > 0
+        ? Math.min(retryAfter * 1000, 8000)
+        : 600 * 2 ** (attempt - 1);
+    await sleep(waitMs);
+  }
+  return res;
+}
+
 /** One assistant turn. `history` is the prior conversation (no system turn). */
 export async function runChat(
   history: ChatTurn[],
@@ -290,10 +320,10 @@ export async function runChat(
     },
   ];
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-goog-api-key': env.keys.gemini },
-    body: JSON.stringify({
+  const res = await postGemini(
+    url,
+    env.keys.gemini,
+    JSON.stringify({
       systemInstruction: {
         parts: [{ text: SYSTEM_CHAT + (webSearch ? SEARCH_ON_NOTE : SEARCH_OFF_NOTE) }],
       },
@@ -301,7 +331,7 @@ export async function runChat(
       ...(webSearch ? { tools: [{ google_search: {} }] } : {}),
       generationConfig: { maxOutputTokens: 8192, temperature: 0.6 },
     }),
-  });
+  );
 
   if (!res.ok) throw new GeminiApiError(res.status, (await res.text()).slice(0, 500));
 
