@@ -172,10 +172,30 @@ const PROMPTS = [
       },
     ],
   },
+  {
+    name: 'investment_analysis',
+    title: '💡 Buy/Sell Analysis',
+    description:
+      'Educational buy/sell/hold analysis for a ticker — valuation, institutional flows, ' +
+      'news, and scenario-based entry/exit levels vs your cost basis. Not licensed advice.',
+    arguments: [
+      { name: 'ticker', description: 'Ticker to analyse, e.g. "2330" or "2303".', required: true },
+      {
+        name: 'question',
+        description: 'Your specific question, e.g. "現在可以加碼嗎?" or "該停利嗎?" (optional).',
+        required: false,
+      },
+    ],
+  },
 ];
 
 function buildPrompt(name, args = {}) {
-  if (name !== 'market_briefing') throw new Error(`Unknown prompt: ${name}`);
+  if (name === 'market_briefing') return marketBriefingPrompt(args);
+  if (name === 'investment_analysis') return investmentAnalysisPrompt(args);
+  throw new Error(`Unknown prompt: ${name}`);
+}
+
+function marketBriefingPrompt(args = {}) {
   const region = args.region && args.region !== 'both' ? args.region : null;
   const scope = region ? `（聚焦 ${region} 市場）` : '';
   const text =
@@ -194,6 +214,38 @@ function buildPrompt(name, args = {}) {
     `語氣直接、重點清楚，不要每句都加免責。如需個股法人動向可另用 get_institutional_flow。`;
   return {
     description: PROMPTS[0].description,
+    messages: [{ role: 'user', content: { type: 'text', text } }],
+  };
+}
+
+function investmentAnalysisPrompt(args = {}) {
+  const ticker = (args.ticker ?? '').trim();
+  const question = (args.question ?? '').trim();
+  const q = question
+    ? `我的問題：「${question}」`
+    : `我的問題：現在這檔的買賣點如何？該買進、加碼、續抱、還是停利/停損？`;
+
+  const text =
+    `請幫我分析 ${ticker || '(請先告訴我代號)'} 這檔標的（教育性分析，非投資建議）。\n` +
+    `${q}\n\n` +
+    `分析前請先取資料：\n` +
+    `1. 呼叫 get_portfolio — 看我是否持有、持有成本(avg_cost)、目前權重、分析師目標價、殖利率。\n` +
+    `2. 呼叫 get_institutional_flow（ticker="${ticker}"）— 近期外資/投信/自營商買賣超。\n` +
+    `3. 呼叫 get_headlines — 是否有相關新聞或產業消息。\n` +
+    `4. 若你有可用的網路搜尋，補上最新股價、均線(20/60/120MA)、近期營收/EPS；沒有就用上面資料並註明缺哪些。\n\n` +
+    `然後用繁體中文，依這個結構回答：\n` +
+    `- **現況速覽**：股價位置、今日/近期漲跌、相對成本的損益（若持有）。\n` +
+    `- **估值**：目前價 vs 分析師目標價的上下空間、殖利率是否合理。\n` +
+    `- **籌碼**：三大法人近期是買超還是賣超，訊號為何。\n` +
+    `- **催化劑與風險**：新聞、產業、總經面的利多與利空。\n` +
+    `- **操作情境（重點）**：依「我的持有成本」給分情境的價位建議——\n` +
+    `    · 買進/加碼參考區間；· 停利目標（可分批）；· 停損位；· 建議部位佔投組比例（提醒單一持股別過度集中）。\n` +
+    `- **結論**：明確傾向（買進/加碼/續抱/減碼/停利/觀望）＋信心程度（高/中/低）。\n\n` +
+    `規則：不保證報酬、不逼我全押；數字缺就說缺、不要編造；` +
+    `結尾一行免責：以上為教育性分析與個人觀點，非持牌投資建議，請自行評估風險。`;
+
+  return {
+    description: PROMPTS[1].description,
     messages: [{ role: 'user', content: { type: 'text', text } }],
   };
 }
