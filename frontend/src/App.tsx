@@ -11,6 +11,7 @@ import { isTwMarketOpen } from './lib/market';
 const AUTO_REFRESH_KEY = 'inv:lastAutoRefresh';
 const AUTO_REFRESH_MIN_GAP = 5 * 60_000; // don't auto-refresh more than once per 5 min
 const QUOTE_POLL_MS = 60_000; // during TW market hours, pull fresh prices this often
+const FULL_REFRESH_MS = 5 * 60_000; // pull all data (not just quotes) on this cadence
 
 const TABS = [
   { to: '/', label: 'Overview', end: true },
@@ -96,6 +97,19 @@ export default function App() {
     };
     const timer = setInterval(tick, QUOTE_POLL_MS);
     return () => clearInterval(timer);
+  }, []);
+
+  // Full data refresh (holdings, rankings, fundamentals, alerts — not just
+  // quotes) on a slower cadence, so the whole dashboard stays current without a
+  // manual click. Only during TW market hours (matching the quotes poll), and
+  // skips while the tab is hidden, to avoid pointless upstream hits.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (document.hidden || !isTwMarketOpen()) return;
+      void refreshAll();
+    }, FULL_REFRESH_MS);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
