@@ -42,6 +42,12 @@ export interface NormalizedItem {
   target_upside_pct: number | null; // (target − price) / price, vs current price
   target_price_at: string | null;
 
+  // Moving averages — 週線 MA5 / 月線 MA20 / 季線 MA60 / 年線 MA240
+  ma5: number | null;
+  ma20: number | null;
+  ma60: number | null;
+  ma240: number | null;
+
   // Classification
   region: 'Taiwan' | 'US' | 'Other';
   sector: string | null;
@@ -112,6 +118,11 @@ function merge(
         ? Math.round(((q.target_mean_price - q.price) / q.price) * 1000) / 10
         : null,
     target_price_at: q?.target_price_at ?? null,
+
+    ma5: q?.ma5 ?? null,
+    ma20: q?.ma20 ?? null,
+    ma60: q?.ma60 ?? null,
+    ma240: q?.ma240 ?? null,
 
     region,
     sector: sec,

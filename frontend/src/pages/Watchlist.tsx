@@ -37,6 +37,7 @@ export default function Watchlist() {
   const [tag, setTag] = useState<string | null>(null);
   const [group, setGroup] = useState<string | null>(null);
   const [groupView, setGroupView] = useState(false);
+  const [showMa, setShowMa] = useState(false);
   const [sort, setSort] = useState<SortKey>('change_pct');
   const [dir, setDir] = useState<1 | -1>(-1);
   const [quick, setQuick] = useState('');
@@ -190,6 +191,9 @@ export default function Watchlist() {
         <Pill active={groupView} onClick={() => setGroupView((v) => !v)}>
           ⊞ group view
         </Pill>
+        <Pill active={showMa} onClick={() => setShowMa((v) => !v)}>
+          均線 週/月/季/年
+        </Pill>
         <span className="ml-auto text-xs text-fg-muted">{filtered.length} items</span>
       </div>
 
@@ -234,6 +238,22 @@ export default function Watchlist() {
                     外資目標價
                   </Th>
                   <th className="text-right">Prem/Disc</th>
+                  {showMa && (
+                    <>
+                      <th className="text-right" title="週線 · 5 日均線">
+                        週
+                      </th>
+                      <th className="text-right" title="月線 · 20 日均線">
+                        月
+                      </th>
+                      <th className="text-right" title="季線 · 60 日均線">
+                        季
+                      </th>
+                      <th className="text-right" title="年線 · 240 日均線">
+                        年
+                      </th>
+                    </>
+                  )}
                   <th>Tags</th>
                   <th className="text-right"> </th>
                 </tr>
@@ -241,9 +261,18 @@ export default function Watchlist() {
               <tbody>
                 {groupView && grouped
                   ? grouped.map(([g, items]) => (
-                      <FragmentGroup key={g} name={g} items={items} onMenu={setMenu} onRemove={remove} />
+                      <FragmentGroup
+                        key={g}
+                        name={g}
+                        items={items}
+                        onMenu={setMenu}
+                        onRemove={remove}
+                        showMa={showMa}
+                      />
                     ))
-                  : filtered.map((it) => <Row key={it.id} it={it} onMenu={setMenu} onRemove={remove} />)}
+                  : filtered.map((it) => (
+                      <Row key={it.id} it={it} onMenu={setMenu} onRemove={remove} showMa={showMa} />
+                    ))}
               </tbody>
             </table>
           </div>
@@ -403,23 +432,36 @@ function FragmentGroup({
   items,
   onMenu,
   onRemove,
+  showMa,
 }: {
   name: string;
   items: WatchItem[];
   onMenu: (m: { x: number; y: number; item: WatchItem }) => void;
   onRemove: (it: WatchItem) => void | Promise<void>;
+  showMa: boolean;
 }) {
   return (
     <>
       <tr className="bg-bg/60">
-        <td colSpan={10} className="px-3 py-1.5 text-xs font-semibold text-accent">
+        <td colSpan={showMa ? 14 : 10} className="px-3 py-1.5 text-xs font-semibold text-accent">
           {name} <span className="text-fg-muted">· {items.length}</span>
         </td>
       </tr>
       {items.map((it) => (
-        <Row key={it.id} it={it} onMenu={onMenu} onRemove={onRemove} />
+        <Row key={it.id} it={it} onMenu={onMenu} onRemove={onRemove} showMa={showMa} />
       ))}
     </>
+  );
+}
+
+/** One 均線 cell — the MA value, coloured amber when price sits above it, violet below. */
+function MaCell({ price, ma }: { price: number | null; ma: number | null }) {
+  if (ma == null) return <td className="text-right tnum text-fg-muted">—</td>;
+  const rel = price == null ? null : price - ma;
+  return (
+    <td className={clsx('text-right tnum', dirClass(rel))} title={rel == null ? undefined : rel >= 0 ? '價格在均線之上' : '價格在均線之下'}>
+      {num(ma)}
+    </td>
   );
 }
 
@@ -427,10 +469,12 @@ function Row({
   it,
   onMenu,
   onRemove,
+  showMa,
 }: {
   it: WatchItem;
   onMenu: (m: { x: number; y: number; item: WatchItem }) => void;
   onRemove: (it: WatchItem) => void | Promise<void>;
+  showMa: boolean;
 }) {
   const isEtf = it.type === 'tw_etf' || it.type === 'us_etf';
   const pd = it.premium_discount_pct;
@@ -482,6 +526,14 @@ function Row({
           <span className="text-fg-muted">—</span>
         )}
       </td>
+      {showMa && (
+        <>
+          <MaCell price={it.price} ma={it.ma5} />
+          <MaCell price={it.price} ma={it.ma20} />
+          <MaCell price={it.price} ma={it.ma60} />
+          <MaCell price={it.price} ma={it.ma240} />
+        </>
+      )}
       <td>
         <div className="flex flex-wrap gap-1">
           {it.tags.slice(0, 3).map((t) => (

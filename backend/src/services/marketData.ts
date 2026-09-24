@@ -219,6 +219,56 @@ export async function refreshAnalystTargets(): Promise<RefreshResult> {
   return { updated, failed };
 }
 
+/**
+ * Moving averages — 週線 (MA5) / 月線 (MA20) / 季線 (MA60) / 年線 (MA240) — for
+ * every watchlist item that has price history (stocks, ETFs, indices; skips FX /
+ * commodities / crypto, which Yahoo history serves inconsistently). Each is a
+ * simple moving average of the last N daily closes; an MA whose window exceeds
+ * the available history is left null (e.g. a newly-listed stock has no 年線).
+ */
+export async function refreshMovingAverages(): Promise<RefreshResult> {
+  const items = listItems().filter(
+    (i) => i.type === 'stock' || i.type === 'tw_etf' || i.type === 'us_etf' || i.type === 'index',
+  );
+  if (items.length === 0) return { updated: 0, failed: 0 };
+
+  // ~240 trading days need ~350 calendar days; pad for holidays/gaps.
+  const to = new Date().toISOString().slice(0, 10);
+  const from = new Date(Date.now() - 420 * 86400_000).toISOString().slice(0, 10);
+
+  const settled = await mapPool(items, 5, async (item) => {
+    const closes = (await yahoo.history(toYahooSymbol(item.ticker, item.market), from, to)).map(
+      (d) => d.close,
+    );
+    if (closes.length === 0) return false;
+    upsertQuote({
+      ticker: item.ticker,
+      ma5: sma(closes, 5),
+      ma20: sma(closes, 20),
+      ma60: sma(closes, 60),
+      ma240: sma(closes, 240),
+      ma_at: new Date().toISOString(),
+    });
+    return true;
+  });
+
+  let updated = 0;
+  let failed = 0;
+  for (const r of settled) {
+    if (r.status === 'rejected') failed++;
+    else if (r.value) updated++;
+  }
+  return { updated, failed };
+}
+
+/** Simple moving average of the last `n` values, or null if there are fewer than `n`. */
+function sma(values: number[], n: number): number | null {
+  if (values.length < n) return null;
+  let sum = 0;
+  for (let i = values.length - n; i < values.length; i++) sum += values[i] as number;
+  return Math.round((sum / n) * 100) / 100;
+}
+
 /** 外資/投信/自營商 net flows for watched Taiwan tickers. */
 export async function refreshTwInstitutional(): Promise<RefreshResult> {
   const watched = new Set(

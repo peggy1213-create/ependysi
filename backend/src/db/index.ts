@@ -44,6 +44,11 @@ function ensureColumns(): void {
       target_low_price: 'REAL',
       analyst_count: 'INTEGER',
       target_price_at: 'TEXT',
+      ma5: 'REAL',
+      ma20: 'REAL',
+      ma60: 'REAL',
+      ma240: 'REAL',
+      ma_at: 'TEXT',
     },
   };
   for (const [table, cols] of Object.entries(add)) {

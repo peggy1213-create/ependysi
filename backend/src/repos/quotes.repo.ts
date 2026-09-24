@@ -24,6 +24,11 @@ export interface NormalizedQuote {
   target_low_price: number | null;
   analyst_count: number | null;
   target_price_at: string | null;
+  ma5: number | null;
+  ma20: number | null;
+  ma60: number | null;
+  ma240: number | null;
+  ma_at: string | null;
   extra: Record<string, unknown> | null;
   source: string | null;
   fetched_at: string;
@@ -80,6 +85,11 @@ export function upsertQuote(q: QuoteUpsert): void {
     target_low_price: q.target_low_price ?? prev?.target_low_price ?? null,
     analyst_count: q.analyst_count ?? prev?.analyst_count ?? null,
     target_price_at: q.target_price_at ?? prev?.target_price_at ?? null,
+    ma5: q.ma5 ?? prev?.ma5 ?? null,
+    ma20: q.ma20 ?? prev?.ma20 ?? null,
+    ma60: q.ma60 ?? prev?.ma60 ?? null,
+    ma240: q.ma240 ?? prev?.ma240 ?? null,
+    ma_at: q.ma_at ?? prev?.ma_at ?? null,
     extra: q.extra ? JSON.stringify(q.extra) : (prev?.extra ?? null),
     source: q.source ?? prev?.source ?? null,
     fetched_at: q.fetched_at ?? new Date().toISOString(),
@@ -90,12 +100,14 @@ export function upsertQuote(q: QuoteUpsert): void {
         nav, premium_discount_pct, dividend_yield, expense_ratio, aum,
         next_ex_dividend_date, last_dividend, last_dividend_date,
         target_mean_price, target_high_price, target_low_price, analyst_count, target_price_at,
+        ma5, ma20, ma60, ma240, ma_at,
         extra, source, fetched_at)
      VALUES
        ($ticker, $name, $price, $change_pct, $volume, $market, $type, $currency,
         $nav, $premium_discount_pct, $dividend_yield, $expense_ratio, $aum,
         $next_ex_dividend_date, $last_dividend, $last_dividend_date,
         $target_mean_price, $target_high_price, $target_low_price, $analyst_count, $target_price_at,
+        $ma5, $ma20, $ma60, $ma240, $ma_at,
         $extra, $source, $fetched_at)
      ON CONFLICT(ticker) DO UPDATE SET
         name=$name, price=$price, change_pct=$change_pct, volume=$volume,
@@ -107,6 +119,7 @@ export function upsertQuote(q: QuoteUpsert): void {
         target_mean_price=$target_mean_price, target_high_price=$target_high_price,
         target_low_price=$target_low_price, analyst_count=$analyst_count,
         target_price_at=$target_price_at,
+        ma5=$ma5, ma20=$ma20, ma60=$ma60, ma240=$ma240, ma_at=$ma_at,
         extra=$extra, source=$source, fetched_at=$fetched_at`,
   ).run(merged as Record<string, string | number | null>);
 }
