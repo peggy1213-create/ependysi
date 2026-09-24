@@ -191,13 +191,18 @@ const PROMPTS = [
     name: 'investment_analysis',
     title: '💡 Buy/Sell Analysis',
     description:
-      'Educational buy/sell/hold analysis for a ticker — valuation, institutional flows, ' +
-      'news, and scenario-based entry/exit levels vs your cost basis. Not licensed advice.',
+      'Educational buy/sell/hold analysis with scenario-based entry/exit levels vs your cost ' +
+      'basis. Leave ticker blank to auto-pick the most important names from today’s ' +
+      'headlines + your portfolio/watchlist. Not licensed advice.',
     arguments: [
-      { name: 'ticker', description: 'Ticker to analyse, e.g. "2330" or "2303".', required: true },
+      {
+        name: 'ticker',
+        description: 'Ticker to analyse, e.g. "2330". Leave blank to auto-pick from today’s news.',
+        required: false,
+      },
       {
         name: 'question',
-        description: 'Your specific question, e.g. "現在可以加碼嗎?" or "該停利嗎?" (optional).',
+        description: 'Your specific question, e.g. "現在可以加碼嗎?" or "今天有什麼該注意的?" (optional).',
         required: false,
       },
     ],
@@ -225,15 +230,23 @@ function marketBriefingPrompt(args = {}) {
 function investmentAnalysisPrompt(args = {}) {
   const ticker = (args.ticker ?? '').trim();
   const question = (args.question ?? '').trim();
-  const q = question
-    ? `我的問題：「${question}」`
-    : `我的問題：現在這檔的買賣點如何？該買進、加碼、續抱、還是停利/停損？`;
 
-  const text = loadPrompt('investment_analysis.md', {
-    TICKER: ticker,
-    TICKER_DISPLAY: ticker || '(請先告訴我代號)',
-    QUESTION: q,
-  });
+  // Two modes: a named ticker → analyse it; blank → scan today's news and pick.
+  const focus = ticker
+    ? `請幫我分析 ${ticker} 這檔標的（教育性分析，非投資建議）。\n` +
+      (question
+        ? `我的問題：「${question}」`
+        : `我的問題：現在這檔的買賣點如何？該買進、加碼、續抱、還是停利/停損？`)
+    : `請先根據「今天的新聞」判斷對我最重要、最值得注意的標的，再做分析（教育性分析，非投資建議）。\n` +
+      (question ? `我的問題：「${question}」\n` : `我的問題：今天有哪些是我該注意的買賣點？\n`) +
+      `\n先做篩選：\n` +
+      `A. 呼叫 get_headlines 看今天有哪些重大新聞。\n` +
+      `B. 呼叫 get_portfolio 和 get_watchlist，找出新聞中與我持股／觀察清單相關、或影響最大的標的。\n` +
+      `C. 從中挑出 2–3 檔最值得注意的（優先：我的持股、權重高的、有明確催化劑或風險的），\n` +
+      `   每檔先用一句話說明「今天為何重要」，並簡述你的挑選理由。\n` +
+      `D. 接著對挑出的每一檔，分別做下面的完整分析。`;
+
+  const text = loadPrompt('investment_analysis.md', { FOCUS: focus });
 
   return {
     description: PROMPTS[1].description,
