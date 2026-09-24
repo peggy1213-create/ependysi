@@ -18,12 +18,30 @@ not the backend/desktop app is running.
 
 ## Prompts
 
-- `market_briefing(region?)` — one-click "📊 Market Briefing": calls the tools and writes a
-  繁體中文 briefing tailored to the user's holdings.
-- `investment_analysis(ticker, question?)` — "💡 Buy/Sell Analysis": pulls portfolio (cost
-  basis, weight, analyst target), per-ticker institutional flows and headlines, then answers
-  buy/sell-point questions with scenario-based entry/exit levels. Educational analysis with a
-  not-licensed-advice disclaimer — not guaranteed calls.
+Prompt wording lives in **editable Markdown files** under `prompts/`. The server reads them
+fresh on every request, so **editing a `.md` file takes effect without restarting Claude
+Desktop** (only adding/removing a prompt, or changing tools, needs a restart).
+
+- `market_briefing(region?)` → [`prompts/market_briefing.md`](prompts/market_briefing.md) —
+  one-click "📊 Market Briefing": calls the tools and writes a 繁體中文 briefing (Top Stories,
+  Themes in Focus, per-holding impact, flows, macro, concentration, what to watch).
+- `investment_analysis(ticker, question?)` → [`prompts/investment_analysis.md`](prompts/investment_analysis.md)
+  — "💡 Buy/Sell Analysis": pulls portfolio (cost basis, weight, analyst target), per-ticker
+  institutional flows and headlines, then answers buy/sell-point questions with scenario-based
+  entry/exit levels. Educational analysis with a not-licensed-advice disclaimer.
+
+### Editing prompts
+
+Open the `.md` file and change the wording. Placeholders in `{{DOUBLE_BRACES}}` are filled in
+by the server from the prompt's arguments:
+
+| File | Placeholders |
+|------|--------------|
+| `market_briefing.md` | `{{SCOPE}}`, `{{HEADLINES_REGION}}` |
+| `investment_analysis.md` | `{{TICKER}}`, `{{TICKER_DISPLAY}}`, `{{QUESTION}}` |
+
+Leave the placeholders in place (or the substitution has nothing to fill); everything else is
+free to edit.
 
 ## Setup (Claude Desktop)
 
