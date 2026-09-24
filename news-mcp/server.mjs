@@ -12,8 +12,23 @@
  */
 import { DatabaseSync } from 'node:sqlite';
 import { homedir } from 'node:os';
-import { resolve } from 'node:path';
-import { existsSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const PROMPT_DIR = resolve(HERE, 'prompts');
+
+/**
+ * Load a prompt template from prompts/<file> and substitute {{VAR}} tokens.
+ * Read fresh on every call, so editing the .md files takes effect without
+ * restarting Claude Desktop (only adding/removing a prompt needs a restart).
+ */
+function loadPrompt(file, vars = {}) {
+  let text = readFileSync(resolve(PROMPT_DIR, file), 'utf8').trimEnd();
+  for (const [k, v] of Object.entries(vars)) text = text.replaceAll(`{{${k}}}`, v);
+  return text;
+}
 
 // ── locate the database ──────────────────────────────────────────────────────
 const CANDIDATES = [
@@ -176,16 +191,10 @@ const PROMPTS = [
     name: 'investment_analysis',
     title: '💡 Buy/Sell Analysis',
     description:
-      'Educational buy/sell/hold analysis for a ticker — valuation, institutional flows, ' +
-      'news, and scenario-based entry/exit levels vs your cost basis. Not licensed advice.',
-    arguments: [
-      { name: 'ticker', description: 'Ticker to analyse, e.g. "2330" or "2303".', required: true },
-      {
-        name: 'question',
-        description: 'Your specific question, e.g. "現在可以加碼嗎?" or "該停利嗎?" (optional).',
-        required: false,
-      },
-    ],
+      "Auto-picks the most important names from today's headlines + your portfolio/watchlist " +
+      'and gives educational buy/sell/hold analysis with scenario-based entry/exit levels vs ' +
+      'your cost basis. No input needed. Not licensed advice.',
+    // No arguments: one click, always scans today's news (Claude Desktop shows no input fields).
   },
 ];
 
@@ -197,21 +206,10 @@ function buildPrompt(name, args = {}) {
 
 function marketBriefingPrompt(args = {}) {
   const region = args.region && args.region !== 'both' ? args.region : null;
-  const scope = region ? `（聚焦 ${region} 市場）` : '';
-  const text =
-    `請幫我做一份今日市場簡報${scope}。步驟：\n` +
-    `1. 呼叫 get_portfolio 取得我的持股、權重與配置（allocation）。\n` +
-    `2. 呼叫 get_headlines${region ? `（region="${region}"）` : ''} 取得最新新聞。\n` +
-    `3. 呼叫 get_market_flow 取得三大法人全市場買賣超（判斷資金動向）。\n` +
-    `4. 用繁體中文寫一份簡報，包含：\n` +
-    `   - 「今日最重要的一件事」一句話總結大盤方向。\n` +
-    `   - 新聞如何影響我「實際持有的個股」（逐檔對照，優先看權重高的，只列有相關新聞的）。\n` +
-    `   - 三大法人資金流向透露的訊號。\n` +
-    `   - 總經背景（美債殖利率、匯率、美中關係等）。\n` +
-    `   - 配置提醒：若有單一持股或產業過度集中，指出來。\n` +
-    `   - 值得觀察的重點。\n` +
-    `5. 結尾加上一行免責聲明：以上為新聞整理與觀察，非投資建議。\n` +
-    `語氣直接、重點清楚，不要每句都加免責。如需個股法人動向可另用 get_institutional_flow。`;
+  const text = loadPrompt('market_briefing.md', {
+    SCOPE: region ? `（聚焦 ${region} 市場）` : '',
+    HEADLINES_REGION: region ? `（region="${region}"）` : '',
+  });
   return {
     description: PROMPTS[0].description,
     messages: [{ role: 'user', content: { type: 'text', text } }],
@@ -221,28 +219,23 @@ function marketBriefingPrompt(args = {}) {
 function investmentAnalysisPrompt(args = {}) {
   const ticker = (args.ticker ?? '').trim();
   const question = (args.question ?? '').trim();
-  const q = question
-    ? `我的問題：「${question}」`
-    : `我的問題：現在這檔的買賣點如何？該買進、加碼、續抱、還是停利/停損？`;
 
-  const text =
-    `請幫我分析 ${ticker || '(請先告訴我代號)'} 這檔標的（教育性分析，非投資建議）。\n` +
-    `${q}\n\n` +
-    `分析前請先取資料：\n` +
-    `1. 呼叫 get_portfolio — 看我是否持有、持有成本(avg_cost)、目前權重、分析師目標價、殖利率。\n` +
-    `2. 呼叫 get_institutional_flow（ticker="${ticker}"）— 近期外資/投信/自營商買賣超。\n` +
-    `3. 呼叫 get_headlines — 是否有相關新聞或產業消息。\n` +
-    `4. 若你有可用的網路搜尋，補上最新股價、均線(20/60/120MA)、近期營收/EPS；沒有就用上面資料並註明缺哪些。\n\n` +
-    `然後用繁體中文，依這個結構回答：\n` +
-    `- **現況速覽**：股價位置、今日/近期漲跌、相對成本的損益（若持有）。\n` +
-    `- **估值**：目前價 vs 分析師目標價的上下空間、殖利率是否合理。\n` +
-    `- **籌碼**：三大法人近期是買超還是賣超，訊號為何。\n` +
-    `- **催化劑與風險**：新聞、產業、總經面的利多與利空。\n` +
-    `- **操作情境（重點）**：依「我的持有成本」給分情境的價位建議——\n` +
-    `    · 買進/加碼參考區間；· 停利目標（可分批）；· 停損位；· 建議部位佔投組比例（提醒單一持股別過度集中）。\n` +
-    `- **結論**：明確傾向（買進/加碼/續抱/減碼/停利/觀望）＋信心程度（高/中/低）。\n\n` +
-    `規則：不保證報酬、不逼我全押；數字缺就說缺、不要編造；` +
-    `結尾一行免責：以上為教育性分析與個人觀點，非持牌投資建議，請自行評估風險。`;
+  // Two modes: a named ticker → analyse it; blank → scan today's news and pick.
+  const focus = ticker
+    ? `請幫我分析 ${ticker} 這檔標的（教育性分析，非投資建議）。\n` +
+      (question
+        ? `我的問題：「${question}」`
+        : `我的問題：現在這檔的買賣點如何？該買進、加碼、續抱、還是停利/停損？`)
+    : `請先根據「今天的新聞」判斷對我最重要、最值得注意的標的，再做分析（教育性分析，非投資建議）。\n` +
+      (question ? `我的問題：「${question}」\n` : `我的問題：今天有哪些是我該注意的買賣點？\n`) +
+      `\n先做篩選：\n` +
+      `A. 呼叫 get_headlines 看今天有哪些重大新聞。\n` +
+      `B. 呼叫 get_portfolio 和 get_watchlist，找出新聞中與我持股／觀察清單相關、或影響最大的標的。\n` +
+      `C. 從中挑出 2–3 檔最值得注意的（優先：我的持股、權重高的、有明確催化劑或風險的），\n` +
+      `   每檔先用一句話說明「今天為何重要」，並簡述你的挑選理由。\n` +
+      `D. 接著對挑出的每一檔，分別做下面的完整分析。`;
+
+  const text = loadPrompt('investment_analysis.md', { FOCUS: focus });
 
   return {
     description: PROMPTS[1].description,
