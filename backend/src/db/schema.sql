@@ -49,6 +49,11 @@ CREATE TABLE IF NOT EXISTS quote_cache (
   target_low_price     REAL,
   analyst_count        INTEGER,-- number of analyst opinions behind the consensus
   target_price_at      TEXT,   -- when the target was last fetched, ISO
+  ma5                  REAL,   -- 週線  (5-day simple moving average of close)
+  ma20                 REAL,   -- 月線  (20-day)
+  ma60                 REAL,   -- 季線  (60-day)
+  ma240                REAL,   -- 年線  (240-day)
+  ma_at                TEXT,   -- when the moving averages were last computed, ISO
   extra                TEXT,   -- JSON blob for source-specific extras
   source               TEXT,
   fetched_at           TEXT NOT NULL

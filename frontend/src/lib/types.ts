@@ -33,6 +33,10 @@ export interface WatchItem {
   analyst_count: number | null;
   target_upside_pct: number | null;
   target_price_at: string | null;
+  ma5: number | null;
+  ma20: number | null;
+  ma60: number | null;
+  ma240: number | null;
   region: 'Taiwan' | 'US' | 'Other';
   sector: string | null;
   tags: string[];

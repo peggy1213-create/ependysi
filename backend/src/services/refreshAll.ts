@@ -12,6 +12,7 @@ import {
   refreshTwInstitutional,
   refreshDividendHistory,
   refreshAnalystTargets,
+  refreshMovingAverages,
 } from './marketData.js';
 import { refreshInstrumentMeta } from './instrumentMeta.js';
 import { refreshEtfHoldings } from './etfHoldings.js';
@@ -31,6 +32,7 @@ export async function refreshAll(opts: { securities?: boolean } = {}): Promise<R
     ['twFundamentals', refreshTwFundamentals],
     ['dividendHistory', refreshDividendHistory],
     ['analystTargets', refreshAnalystTargets],
+    ['movingAverages', refreshMovingAverages],
     ['instrumentMeta', refreshInstrumentMeta],
     ['etfHoldings', () => refreshEtfHoldings(false)],
     ['marketFlow', refreshMarketFlow],
