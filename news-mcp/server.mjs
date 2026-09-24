@@ -191,21 +191,10 @@ const PROMPTS = [
     name: 'investment_analysis',
     title: '💡 Buy/Sell Analysis',
     description:
-      'Educational buy/sell/hold analysis with scenario-based entry/exit levels vs your cost ' +
-      'basis. Leave ticker blank to auto-pick the most important names from today’s ' +
-      'headlines + your portfolio/watchlist. Not licensed advice.',
-    arguments: [
-      {
-        name: 'ticker',
-        description: 'Ticker to analyse, e.g. "2330". Leave blank to auto-pick from today’s news.',
-        required: false,
-      },
-      {
-        name: 'question',
-        description: 'Your specific question, e.g. "現在可以加碼嗎?" or "今天有什麼該注意的?" (optional).',
-        required: false,
-      },
-    ],
+      "Auto-picks the most important names from today's headlines + your portfolio/watchlist " +
+      'and gives educational buy/sell/hold analysis with scenario-based entry/exit levels vs ' +
+      'your cost basis. No input needed. Not licensed advice.',
+    // No arguments: one click, always scans today's news (Claude Desktop shows no input fields).
   },
 ];
 
