@@ -16,10 +16,14 @@ not the backend/desktop app is running.
 | `get_market_flow(days?)` | Market-wide 三大法人 net buy/sell in 億 TWD. |
 | `get_institutional_flow(ticker, days?)` | Per-ticker 外資/投信/自營商 flows in 萬股. |
 
-## Prompt
+## Prompts
 
-`market_briefing(region?)` — a one-click "📊 Market Briefing" template that calls the tools
-and writes a 繁體中文 briefing tailored to the user's holdings.
+- `market_briefing(region?)` — one-click "📊 Market Briefing": calls the tools and writes a
+  繁體中文 briefing tailored to the user's holdings.
+- `investment_analysis(ticker, question?)` — "💡 Buy/Sell Analysis": pulls portfolio (cost
+  basis, weight, analyst target), per-ticker institutional flows and headlines, then answers
+  buy/sell-point questions with scenario-based entry/exit levels. Educational analysis with a
+  not-licensed-advice disclaimer — not guaranteed calls.
 
 ## Setup (Claude Desktop)
 
