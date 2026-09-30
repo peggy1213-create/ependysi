@@ -75,6 +75,7 @@ export function LotForm({
   initialMode?: Mode;
 }) {
   const [mode, setMode] = useState<Mode>('single');
+  const [side, setSide] = useState<'buy' | 'sell'>('buy');
   const [v, setV] = useState<LotFormValues>(empty);
   const [dca, setDca] = useState<DcaValues>(emptyDca);
   const [busy, setBusy] = useState(false);
@@ -86,9 +87,10 @@ export function LotForm({
     if (editing) {
       setMode('single');
       const l = editing.lot;
+      setSide(l.shares < 0 ? 'sell' : 'buy');
       setV({
         ticker: editing.ticker,
-        shares: String(l.shares),
+        shares: String(Math.abs(l.shares)),
         cost_basis: String(l.cost_basis),
         currency: l.currency ?? '',
         purchase_date: l.purchase_date ?? '',
@@ -98,6 +100,7 @@ export function LotForm({
       });
     } else {
       setMode(initialMode);
+      setSide('buy');
       setV(empty);
       setDca(emptyDca());
     }
@@ -124,9 +127,10 @@ export function LotForm({
 
   const submitLot = async () => {
     const numOrNull = (s: string) => (s.trim() === '' ? null : Number(s));
+    const magnitude = Math.abs(Number(v.shares));
     const body: Record<string, unknown> = {
       ticker: v.ticker.trim().toUpperCase(),
-      shares: Number(v.shares),
+      shares: side === 'sell' ? -magnitude : magnitude,
       cost_basis: Number(v.cost_basis),
       purchase_date: v.purchase_date || null,
       notes: v.notes.trim() || null,
@@ -244,11 +248,19 @@ export function LotForm({
               onPickCurrency={(ccy) => setV((s) => ({ ...s, currency: s.currency || ccy }))}
               autoFocus={!editing}
             />
+            <div className="flex gap-1.5">
+              <Pill active={side === 'buy'} onClick={() => setSide('buy')}>
+                買進
+              </Pill>
+              <Pill active={side === 'sell'} onClick={() => setSide('sell')}>
+                賣出
+              </Pill>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <Field label="Shares">
                 <input type="number" step="any" value={v.shares} onChange={set('shares')} className={inputCls} />
               </Field>
-              <Field label="Cost / share">
+              <Field label={side === 'sell' ? 'Sale price / share' : 'Cost / share'}>
                 <input type="number" step="any" value={v.cost_basis} onChange={set('cost_basis')} className={inputCls} />
               </Field>
             </div>
