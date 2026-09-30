@@ -152,10 +152,11 @@ export function computePortfolio(): PortfolioSnapshot {
       };
     });
 
-    const costTwd = sumOrNull(lotVals.map((l) => l.cost_value_twd));
+    const held = heldCost(group, fx);
+    const costTwd = held.costTwd;
     const mvOrig = price != null ? price * shares : null;
     const mvTwd = mvOrig != null ? toTwd(mvOrig, posCurrency, fx) : null;
-    const sameCcyCost = !mixedCurrency ? sum(group.map((l) => l.cost_basis * l.shares)) : null;
+    const sameCcyCost = !mixedCurrency ? held.costOrig : null;
 
     // target / stop: the most recently-dated lot that sets each (independently)
     const byRecency = [...group].sort(sortLot).reverse();
@@ -473,9 +474,40 @@ export function computeOverlap(snapshot = computePortfolio()): OverlapView {
 function sum(xs: number[]): number {
   return xs.reduce((a, b) => a + b, 0);
 }
-function sumOrNull(xs: (number | null)[]): number | null {
-  if (xs.some((x) => x == null)) return xs.some((x) => x != null) ? sum(xs.filter((x): x is number => x != null)) : null;
-  return sum(xs as number[]);
+
+/**
+ * Cost basis of the shares still held, via the moving-average method. Buy lots
+ * add shares and their cost; a sell lot (negative shares) removes shares at the
+ * running average cost — so a sale realises P&L but leaves the cost basis of the
+ * shares that remain untouched. Without this, `cost_basis × shares` on a sell
+ * lot subtracts the sale *proceeds* from the position, wrecking its cost and
+ * avg_cost (e.g. selling part of a holding made the original cost disappear).
+ *
+ * `costOrig` is only meaningful for a single-currency position; `costTwd` is
+ * null when any contributing lot's FX rate is unknown.
+ */
+function heldCost(group: Lot[], fx: FxTable): { costOrig: number; costTwd: number | null } {
+  let shares = 0;
+  let costOrig = 0;
+  let costTwd = 0;
+  let fxMissing = false;
+  for (const l of [...group].sort(sortLot)) {
+    if (l.shares >= 0) {
+      shares += l.shares;
+      costOrig += l.cost_basis * l.shares;
+      const twd = toTwd(l.cost_basis * l.shares, l.currency, fx);
+      if (twd == null) fxMissing = true;
+      else costTwd += twd;
+    } else if (shares > 0) {
+      // Remove the sold fraction of the running cost (capped so an oversell
+      // zeroes the basis rather than driving it negative).
+      const frac = Math.min(-l.shares, shares) / shares;
+      costOrig -= costOrig * frac;
+      costTwd -= costTwd * frac;
+      shares += l.shares;
+    }
+  }
+  return { costOrig, costTwd: fxMissing ? null : costTwd };
 }
 function sortLot(a: Lot, b: Lot): number {
   const da = a.purchase_date ?? '';
